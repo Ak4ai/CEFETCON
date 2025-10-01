@@ -95,11 +95,9 @@ const CounterContainer = styled.div<{ $fontSize: string }>`
 
 
 interface VoteAverages {
-  craftsmanship: number;
-  accuracy: number;
-  creativity: number;
-  presentation: number;
-  overall: number;
+  indumentaria: number;
+  similaridade: number;
+  qualidade: number;
   finalAverage: number;
   totalVotes: number;
 }
@@ -447,11 +445,9 @@ const BackButton = styled.button`
 `;
 
 const categoryLabels = {
-  craftsmanship: 'Técnica/Confecção',
-  accuracy: 'Fidelidade',
-  creativity: 'Criatividade',
-  presentation: 'Apresentação',
-  overall: 'Impressão Geral'
+  indumentaria: 'Indumentária',
+  similaridade: 'Similaridade',
+  qualidade: 'Qualidade',
 };
 
 const SpectatorView: React.FC = () => {
@@ -519,9 +515,9 @@ const SpectatorView: React.FC = () => {
         console.error('❌ Erro ao buscar médias:', error);
         if (error.response?.status === 404) {
           console.log('ℹ️ Perfil sem votos, exibindo zeros');
-          setAverages({ craftsmanship: 0, accuracy: 0, creativity: 0, presentation: 0, overall: 0, finalAverage: 0, totalVotes: 0 });
+          setAverages({ indumentaria: 0, similaridade: 0, qualidade: 0, finalAverage: 0, totalVotes: 0 });
         } else {
-          setAverages({ craftsmanship: 0, accuracy: 0, creativity: 0, presentation: 0, overall: 0, finalAverage: 0, totalVotes: 0 });
+          setAverages({ indumentaria: 0, similaridade: 0, qualidade: 0, finalAverage: 0, totalVotes: 0 });
         }
         setLastUpdate(new Date());
       } finally {

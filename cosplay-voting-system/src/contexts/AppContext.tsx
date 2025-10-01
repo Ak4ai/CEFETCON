@@ -84,11 +84,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           onlineJurors: action.payload.online_jurors || 0,
           pendingJurors: action.payload.pending_jurors?.length || 0,
           averageScores: action.payload.current_profile_stats?.averages ? {
-            craftsmanship: parseFloat(action.payload.current_profile_stats.averages.craftsmanship || '0'),
-            accuracy: parseFloat(action.payload.current_profile_stats.averages.accuracy || '0'),
-            creativity: parseFloat(action.payload.current_profile_stats.averages.creativity || '0'),
-            presentation: parseFloat(action.payload.current_profile_stats.averages.presentation || '0'),
-            overall: parseFloat(action.payload.current_profile_stats.averages.overall_impression || '0')
+            indumentaria: parseFloat(action.payload.current_profile_stats.averages.indumentaria || '0'),
+            similaridade: parseFloat(action.payload.current_profile_stats.averages.similaridade || '0'),
+            qualidade: parseFloat(action.payload.current_profile_stats.averages.qualidade || '0'),
           } : null,
           votes: (action.payload.current_profile_votes || []).map((v: RawVote) => ({
             id: v.id,
@@ -96,11 +94,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             jurorName: v.juror_name,
             cosplayId: v.cosplay_id,
             scores: {
-              craftsmanship: v.craftsmanship,
-              accuracy: v.accuracy,
-              creativity: v.creativity,
-              presentation: v.presentation,
-              overall: v.overall_impression,
+              indumentaria: v.indumentaria,
+              similaridade: v.similaridade,
+              qualidade: v.qualidade,
             },
             submitted: v.submitted,
             updatedAt: v.updated_at,
@@ -496,20 +492,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (votes.length === 0) return {};
 
     const totals = votes.reduce((acc, vote) => ({
-      craftsmanship: acc.craftsmanship + vote.scores.craftsmanship,
-      accuracy: acc.accuracy + vote.scores.accuracy,
-      creativity: acc.creativity + vote.scores.creativity,
-      presentation: acc.presentation + vote.scores.presentation,
-      overall: acc.overall + vote.scores.overall,
-    }), { craftsmanship: 0, accuracy: 0, creativity: 0, presentation: 0, overall: 0 });
+      indumentaria: acc.indumentaria + vote.scores.indumentaria,
+      similaridade: acc.similaridade + vote.scores.similaridade,
+      qualidade: acc.qualidade + vote.scores.qualidade,
+    }), { indumentaria: 0, similaridade: 0, qualidade: 0 });
 
     return {
-      craftsmanship: totals.craftsmanship / votes.length,
-      accuracy: totals.accuracy / votes.length,
-      creativity: totals.creativity / votes.length,
-      presentation: totals.presentation / votes.length,
-      overall: totals.overall / votes.length,
-      total: Object.values(totals).reduce((a, b) => a + b, 0) / (votes.length * 5)
+      indumentaria: totals.indumentaria / votes.length,
+      similaridade: totals.similaridade / votes.length,
+      qualidade: totals.qualidade / votes.length,
+      total: Object.values(totals).reduce((a, b) => a + b, 0) / (votes.length * 3)
     };
   };
 
@@ -532,11 +524,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const totalScores = stats.votes.reduce((acc, vote) => {
             if (vote.submitted) {
               return acc + (
-                vote.scores.craftsmanship + 
-                vote.scores.accuracy + 
-                vote.scores.creativity + 
-                vote.scores.presentation + 
-                vote.scores.overall
+                vote.scores.indumentaria + 
+                vote.scores.similaridade + 
+                vote.scores.qualidade
               );
             }
             return acc;
@@ -546,19 +536,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           totalVotes = submittedVotes.length;
           
           if (totalVotes > 0) {
-            finalScore = totalScores / (totalVotes * 5); // Normalizar para 0-10
+            finalScore = totalScores / (totalVotes * 3); // Normalizar para 0-10
             console.log('📊 Score calculado das estatísticas:', finalScore, 'com', totalVotes, 'votos');
           }
         } else if (stats.averageScores) {
           // Usar médias das estatísticas se disponível
           const avgScores = stats.averageScores;
           finalScore = (
-            avgScores.craftsmanship + 
-            avgScores.accuracy + 
-            avgScores.creativity + 
-            avgScores.presentation + 
-            avgScores.overall
-          ) / 5;
+            avgScores.indumentaria + 
+            avgScores.similaridade + 
+            avgScores.qualidade
+          ) / 3;
           totalVotes = stats.totalVotes || 0;
           console.log('📊 Score calculado das médias:', finalScore, 'com', totalVotes, 'votos');
         }
@@ -568,21 +556,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         if (profileVotes.length > 0) {
           const totals = profileVotes.reduce((acc, vote) => ({
-            craftsmanship: acc.craftsmanship + vote.scores.craftsmanship,
-            accuracy: acc.accuracy + vote.scores.accuracy,
-            creativity: acc.creativity + vote.scores.creativity,
-            presentation: acc.presentation + vote.scores.presentation,
-            overall: acc.overall + vote.scores.overall,
-          }), { craftsmanship: 0, accuracy: 0, creativity: 0, presentation: 0, overall: 0 });
+            indumentaria: acc.indumentaria + vote.scores.indumentaria,
+            similaridade: acc.similaridade + vote.scores.similaridade,
+            qualidade: acc.qualidade + vote.scores.qualidade,
+          }), { indumentaria: 0, similaridade: 0, qualidade: 0 });
 
           totalVotes = profileVotes.length;
           finalScore = (
-            totals.craftsmanship + 
-            totals.accuracy + 
-            totals.creativity + 
-            totals.presentation + 
-            totals.overall
-          ) / (totalVotes * 5);
+            totals.indumentaria + 
+            totals.similaridade + 
+            totals.qualidade
+          ) / (totalVotes * 3);
           console.log('📊 Score calculado dos votos diretos:', finalScore, 'com', totalVotes, 'votos');
         }
       }

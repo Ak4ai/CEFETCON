@@ -101,8 +101,8 @@ router.put('/set-visible/:profileId', authenticateToken, requireAdmin, async (re
       console.log(`🔄 Fechando votação para o perfil ID: ${oldVisibleProfileId}`);
       const finalStatsResult = await query(`
         SELECT 
-          COUNT(*) as total_votes,
-          AVG((craftsmanship + accuracy + creativity + presentation + overall_impression) / 5.0) as overall_average
+          COUNT(*) FILTER (WHERE submitted = true) as total_votes,
+          AVG((indumentaria + similaridade + qualidade) / 3.0) as overall_average
         FROM votes 
         WHERE cosplay_id = $1 AND submitted = true
       `, [oldVisibleProfileId]);
@@ -220,11 +220,9 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
         SELECT 
           COUNT(*) FILTER (WHERE submitted = true) as total_votes,
           COUNT(DISTINCT juror_id) as unique_jurors,
-          AVG(craftsmanship) as avg_craftsmanship,
-          AVG(accuracy) as avg_accuracy,
-          AVG(creativity) as avg_creativity,
-          AVG(presentation) as avg_presentation,
-          AVG(overall_impression) as avg_overall
+          AVG(indumentaria) as avg_indumentaria,
+          AVG(similaridade) as avg_similaridade,
+          AVG(qualidade) as avg_qualidade
         FROM votes 
         WHERE cosplay_id = $1
       `, [currentProfile.id]);
@@ -234,11 +232,9 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
         total_votes: parseInt(stats.total_votes || 0),
         unique_jurors: parseInt(stats.unique_jurors || 0),
         averages: {
-          craftsmanship: parseFloat(stats.avg_craftsmanship || 0).toFixed(2),
-          accuracy: parseFloat(stats.avg_accuracy || 0).toFixed(2),
-          creativity: parseFloat(stats.avg_creativity || 0).toFixed(2),
-          presentation: parseFloat(stats.avg_presentation || 0).toFixed(2),
-          overall_impression: parseFloat(stats.avg_overall || 0).toFixed(2)
+          indumentaria: parseFloat(stats.avg_indumentaria || 0).toFixed(2),
+          similaridade: parseFloat(stats.avg_similaridade || 0).toFixed(2),
+          qualidade: parseFloat(stats.avg_qualidade || 0).toFixed(2)
         }
       };
     }
@@ -339,7 +335,7 @@ router.post('/close', authenticateToken, requireAdmin, async (req, res) => {
       SELECT 
         COUNT(*) as total_votes,
         COUNT(DISTINCT juror_id) as unique_jurors,
-        AVG((craftsmanship + accuracy + creativity + presentation + overall_impression) / 5.0) as overall_average
+        AVG((indumentaria + similaridade + qualidade) / 3.0) as overall_average
       FROM votes 
       WHERE cosplay_id = $1 AND submitted = true
     `, [currentProfile.id]);

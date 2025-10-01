@@ -1173,7 +1173,7 @@ const AdminDashboard: React.FC = () => {
                         </VotesTableCell>
                         <VotesTableCell>
                           <strong style={{ color: '#667eea' }}>
-                            {(Object.values(vote.scores).reduce((sum, score) => sum + score, 0) / 5).toFixed(1)}
+                            {(Object.values(vote.scores).reduce((sum, score) => sum + score, 0) / 3).toFixed(1)}
                           </strong>
                         </VotesTableCell>
                         <VotesTableCell>

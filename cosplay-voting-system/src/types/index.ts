@@ -12,11 +12,9 @@ export interface CosplayProfile {
 }
 
 export interface Scores {
-  craftsmanship: number; // Qualidade da confecção
-  accuracy: number; // Fidelidade ao personagem
-  creativity: number; // Criatividade
-  presentation: number; // Apresentação/Performance
-  overall: number; // Impressão geral
+  indumentaria: number;
+  similaridade: number;
+  qualidade: number;
 }
 
 export interface Vote {
@@ -77,11 +75,9 @@ export interface RawVote {
   juror_id: string;
   juror_name: string;
   cosplay_id: string;
-  craftsmanship: number;
-  accuracy: number;
-  creativity: number;
-  presentation: number;
-  overall_impression: number;
+  indumentaria: number;
+  similaridade: number;
+  qualidade: number;
   submitted: boolean;
   updated_at: string;
 }

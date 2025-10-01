@@ -63,11 +63,9 @@ router.get('/profile/:profileId', authenticateToken, requireAdmin, async (req, r
 // POST /api/votes - Criar ou atualizar voto
 router.post('/', [
   body('cosplay_id').isInt({ min: 1 }).withMessage('ID do cosplay inválido'),
-  body('craftsmanship').isInt({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
-  body('accuracy').isInt({ min: 1, max: 10 }).withMessage('Nota de fidelidade deve ser entre 1 e 10'),
-  body('creativity').isInt({ min: 1, max: 10 }).withMessage('Nota de criatividade deve ser entre 1 e 10'),
-  body('presentation').isInt({ min: 1, max: 10 }).withMessage('Nota de apresentação deve ser entre 1 e 10'),
-  body('overall_impression').isInt({ min: 1, max: 10 }).withMessage('Nota de impressão geral deve ser entre 1 e 10'),
+  body('indumentaria').isInt({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
+  body('similaridade').isInt({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
+  body('qualidade').isInt({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
   body('submitted').isBoolean().withMessage('Status de submissão deve ser boolean')
 ], authenticateToken, requireJuror, async (req, res) => {
   try {
@@ -82,11 +80,9 @@ router.post('/', [
 
     const { 
       cosplay_id, 
-      craftsmanship, 
-      accuracy, 
-      creativity, 
-      presentation, 
-      overall_impression, 
+      indumentaria,
+      similaridade,
+      qualidade,
       submitted 
     } = req.body;
 
@@ -115,29 +111,24 @@ router.post('/', [
       result = await query(`
         UPDATE votes 
         SET 
-          craftsmanship = $1,
-          accuracy = $2,
-          creativity = $3,
-          presentation = $4,
-          overall_impression = $5,
-          submitted = $6,
+          indumentaria = $1,
+          similaridade = $2,
+          qualidade = $3,
+          submitted = $4,
           updated_at = CURRENT_TIMESTAMP
-        WHERE juror_id = $7 AND cosplay_id = $8
+        WHERE juror_id = $5 AND cosplay_id = $6
         RETURNING *
-      `, [craftsmanship, accuracy, creativity, presentation, overall_impression, submitted, req.user.id, cosplay_id]);
+      `, [indumentaria, similaridade, qualidade, submitted, req.user.id, cosplay_id]);
       
       message = 'Voto atualizado com sucesso';
       console.log(`✅ Voto atualizado: ${req.user.name} para ${profile.name} - ${profile.character}`);
     } else {
       // Criar novo voto
       result = await query(`
-        INSERT INTO votes (
-          juror_id, cosplay_id, craftsmanship, accuracy, creativity, 
-          presentation, overall_impression, submitted
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO votes (juror_id, cosplay_id, indumentaria, similaridade, qualidade, submitted)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
-      `, [req.user.id, cosplay_id, craftsmanship, accuracy, creativity, presentation, overall_impression, submitted]);
+      `, [req.user.id, cosplay_id, indumentaria, similaridade, qualidade, submitted]);
       
       message = 'Voto criado com sucesso';
       console.log(`✅ Novo voto: ${req.user.name} para ${profile.name} - ${profile.character}`);
@@ -329,12 +320,10 @@ router.get('/averages/:profileId', async (req, res) => {
     const averagesResult = await query(`
       SELECT 
         COUNT(*) as total_votes,
-        COALESCE(AVG(craftsmanship), 0) as avg_craftsmanship,
-        COALESCE(AVG(accuracy), 0) as avg_accuracy,
-        COALESCE(AVG(creativity), 0) as avg_creativity,
-        COALESCE(AVG(presentation), 0) as avg_presentation,
-        COALESCE(AVG(overall_impression), 0) as avg_overall,
-        COALESCE(AVG((craftsmanship + accuracy + creativity + presentation + overall_impression) / 5.0), 0) as final_average
+        COALESCE(AVG(indumentaria), 0) as avg_indumentaria,
+        COALESCE(AVG(similaridade), 0) as avg_similaridade,
+        COALESCE(AVG(qualidade), 0) as avg_qualidade,
+        COALESCE(AVG((indumentaria + similaridade + qualidade) / 3.0), 0) as final_average
       FROM votes 
       WHERE cosplay_id = $1 AND submitted = true
     `, [profileId]);
@@ -342,11 +331,9 @@ router.get('/averages/:profileId', async (req, res) => {
     const result = averagesResult.rows[0];
 
     res.json({
-      craftsmanship: parseFloat(result.avg_craftsmanship || 0),
-      accuracy: parseFloat(result.avg_accuracy || 0),
-      creativity: parseFloat(result.avg_creativity || 0),
-      presentation: parseFloat(result.avg_presentation || 0),
-      overall: parseFloat(result.avg_overall || 0),
+      indumentaria: parseFloat(result.avg_indumentaria || 0),
+      similaridade: parseFloat(result.avg_similaridade || 0),
+      qualidade: parseFloat(result.avg_qualidade || 0),
       finalAverage: parseFloat(result.final_average || 0),
       totalVotes: parseInt(result.total_votes || 0)
     });

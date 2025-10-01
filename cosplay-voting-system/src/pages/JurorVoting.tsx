@@ -551,25 +551,17 @@ const StatusMessage = styled.div<{ type: 'success' | 'info' }>`
 `;
 
 const criteriaLabels = {
-  craftsmanship: {
-    title: 'Qualidade da Confecção',
-    description: 'Avalie a qualidade dos materiais, acabamento e detalhes técnicos do cosplay.'
+  indumentaria: {
+    title: 'INDUMENTÁRIA',
+    description: 'Qualidade de acabamento das roupas, maquiagem, penteado e acessórios.'
   },
-  accuracy: {
-    title: 'Fidelidade ao Personagem',
-    description: 'Quão fiel é a representação visual do personagem original.'
+  similaridade: {
+    title: 'SIMILARIDADE',
+    description: 'Fidelidade do cosplay ao personagem original, com base nas referências.'
   },
-  creativity: {
-    title: 'Criatividade',
-    description: 'Elementos criativos, inovações e interpretação pessoal do personagem.'
-  },
-  presentation: {
-    title: 'Apresentação/Performance',
-    description: 'Postura, expressão facial, gestos e interpretação do personagem.'
-  },
-  overall: {
-    title: 'Impressão Geral',
-    description: 'Sua impressão geral sobre o cosplay como um todo.'
+  qualidade: {
+    title: 'QUALIDADE',
+    description: 'Detalhes da vestimenta e desenvoltura do cosplayer ao desfilar.'
   }
 };
 
@@ -582,11 +574,9 @@ const JurorVoting: React.FC = () => {
   });
   
   const [scores, setScores] = useState<Scores>({
-    craftsmanship: 0,
-    accuracy: 0,
-    creativity: 0,
-    presentation: 0,
-    overall: 0
+    indumentaria: 0,
+    similaridade: 0,
+    qualidade: 0
   });
   
   const [isEditing, setIsEditing] = useState(false);
@@ -668,11 +658,9 @@ const JurorVoting: React.FC = () => {
         setIsEditing(false);
       } else {
         setScores({
-          craftsmanship: 0,
-          accuracy: 0,
-          creativity: 0,
-          presentation: 0,
-          overall: 0
+          indumentaria: 0,
+          similaridade: 0,
+          qualidade: 0
         });
         setHasVoted(false);
         setIsEditing(false);
