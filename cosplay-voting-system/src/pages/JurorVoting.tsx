@@ -138,9 +138,9 @@ const MainContent = styled.main`
   }
 `;
 
-const ProfileSection = styled.div<{ isThreeColumn?: boolean }>`
+const ProfileSection = styled.div<{ $isThreeColumn?: boolean }>`
   display: grid;
-  grid-template-columns: ${props => props.isThreeColumn ? '1fr 0.4fr 0.5fr' : '2fr 1fr'};
+  grid-template-columns: ${props => props.$isThreeColumn ? '1fr 0.4fr 0.5fr' : '2fr 1fr'};
   gap: 20px;
   margin-bottom: 30px;
   width: 100%;
@@ -149,7 +149,7 @@ const ProfileSection = styled.div<{ isThreeColumn?: boolean }>`
   box-sizing: border-box;
 
   @media (max-width: 1200px) {
-    grid-template-columns: ${props => props.isThreeColumn ? '1fr 0.6fr 0.7fr' : '1.5fr 1fr'};
+    grid-template-columns: ${props => props.$isThreeColumn ? '1fr 0.6fr 0.7fr' : '1.5fr 1fr'};
     gap: 15px;
   }
 
@@ -465,7 +465,7 @@ const ButtonsSection = styled.div`
   flex-wrap: wrap;
 `;
 
-const ActionButton = styled.button<{ variant?: 'primary' | 'secondary' | 'success' }>`
+const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'success' }>`
   padding: 15px 30px;
   border: none;
   margin-bottom: 20px;
@@ -481,7 +481,7 @@ const ActionButton = styled.button<{ variant?: 'primary' | 'secondary' | 'succes
   justify-content: center;
 
   ${props => {
-    switch (props.variant) {
+    switch (props.$variant) {
       case 'success':
         return `
           background: var(--accent-green);
@@ -566,25 +566,19 @@ const criteriaLabels = {
 };
 
 const GalleryContainer = styled.div`
-  display: flex;
-  gap: 10px;
+  column-count: 3;
+  column-gap: 10px;
+  width: 100%;
   margin-top: 15px;
-  flex-wrap: wrap;
-  justify-content: center;
 `;
 
-const ThumbnailImage = styled.img<{ isSelected: boolean }>`
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
+const GalleryImage = styled.img`
+  width: 100%;
+  height: auto;
   border-radius: 8px;
-  cursor: pointer;
-  border: 3px solid ${props => props.isSelected ? 'var(--accent-purple)' : 'transparent'};
-  transition: border-color 0.3s ease;
-
-  &:hover {
-    border-color: var(--accent-purple);
-  }
+  margin-bottom: 10px;
+  break-inside: avoid;
+  display: block;
 `;
 
 const JurorVoting: React.FC = () => {
@@ -604,7 +598,6 @@ const JurorVoting: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [descriptionMaxHeight, setDescriptionMaxHeight] = useState<string>('0px'); // Inicia com 0 para modo 3 colunas
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const imageContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -628,12 +621,6 @@ const JurorVoting: React.FC = () => {
 
   const currentProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
   const jurorId = authState.user?.id || '';
-
-  useEffect(() => {
-    if (currentProfile) {
-        setSelectedImage(currentProfile.image_urls[0] || null);
-    }
-  }, [currentProfile]);
 
   // Efeito para monitorar altura da coluna de imagem e aplicar à descrição
   useEffect(() => {
@@ -700,11 +687,20 @@ const JurorVoting: React.FC = () => {
     // ou quando a lista de votos for atualizada (ex: após login).
   }, [currentProfile, jurorId, state.votes, isEditing]);
 
-  const handleScoreChange = (criteria: keyof Scores, value: number) => {
-    setScores(prev => ({
-      ...prev,
-      [criteria]: value
-    }));
+  const handleScoreChange = (criteria: keyof Scores, value: string) => {
+    if (value === '') {
+      setScores(prev => ({ ...prev, [criteria]: 0 }));
+      setIsEditing(true);
+      return;
+    }
+
+    const parsedValue = parseFloat(value);
+    if (!isNaN(parsedValue)) {
+      setScores(prev => ({
+        ...prev,
+        [criteria]: parsedValue
+      }));
+    }
     setIsEditing(true);
   };
 
@@ -727,7 +723,7 @@ const JurorVoting: React.FC = () => {
     setHasVoted(false);
   };
 
-  const isValidScore = (score: number) => score >= 1 && score <= 10;
+  const isValidScore = (score: number) => !isNaN(score) && score >= 1 && score <= 10;
   const allScoresValid = Object.values(scores).every(isValidScore);
 
   const toggleLayout = () => {
@@ -796,25 +792,23 @@ const JurorVoting: React.FC = () => {
           </StatusMessage>
         )}
 
-        <ProfileSection isThreeColumn={isThreeColumn}>
+        <ProfileSection $isThreeColumn={isThreeColumn}>
           {isThreeColumn ? (
             <>
               <ImageContainer ref={imageContainerRef}>
                 <ProfileImageThreeColumn 
-                  src={selectedImage || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
+                  src={currentProfile.image_urls[0] || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
                   alt={currentProfile.name}
                   onError={(e) => {
                     e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
                   }}
                 />
                 <GalleryContainer>
-                  {currentProfile.image_urls.map((url, index) => (
-                      <ThumbnailImage 
+                  {currentProfile.image_urls.slice(1).map((url, index) => (
+                      <GalleryImage 
                           key={index} 
                           src={url} 
-                          alt={`Thumbnail ${index + 1}`} 
-                          onClick={() => setSelectedImage(url)}
-                          isSelected={selectedImage === url}
+                          alt={`Gallery image ${index + 1}`} 
                       />
                   ))}
                 </GalleryContainer>
@@ -851,13 +845,11 @@ const JurorVoting: React.FC = () => {
                       </CriteriaInfo>
                       <ScoreInput
                         type="number"
+                        step="0.01"
                         min="1"
                         max="10"
                         value={scores[key as keyof Scores] || ''}
-                        onChange={(e) => handleScoreChange(
-                          key as keyof Scores, 
-                          parseInt(e.target.value) || 0
-                        )}
+                        onChange={(e) => handleScoreChange(key as keyof Scores, e.target.value)}
                         disabled={hasVoted && !isEditing}
                         placeholder="1-10"
                       />
@@ -867,13 +859,13 @@ const JurorVoting: React.FC = () => {
 
                 <ButtonsSection>
                   {hasVoted && !isEditing ? (
-                    <ActionButton variant="secondary" onClick={handleEditVote}>
+                    <ActionButton $variant="secondary" onClick={handleEditVote}>
                       <Edit3 size={20} />
                       Editar Avaliação
                     </ActionButton>
                   ) : (
                     <ActionButton 
-                      variant={hasVoted ? "success" : "primary"}
+                      $variant={hasVoted ? "success" : "primary"}
                       onClick={handleSubmitVote}
                       disabled={!allScoresValid}
                     >
@@ -895,20 +887,18 @@ const JurorVoting: React.FC = () => {
               <LeftContainer>
                 <ImageSection>
                   <ProfileImage 
-                    src={selectedImage || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
+                    src={currentProfile.image_urls[0] || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
                     alt={currentProfile.name}
                     onError={(e) => {
                       e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
                     }}
                   />
                   <GalleryContainer>
-                    {currentProfile.image_urls.map((url, index) => (
-                        <ThumbnailImage 
+                    {currentProfile.image_urls.slice(1).map((url, index) => (
+                        <GalleryImage 
                             key={index} 
                             src={url} 
-                            alt={`Thumbnail ${index + 1}`} 
-                            onClick={() => setSelectedImage(url)}
-                            isSelected={selectedImage === url}
+                            alt={`Gallery image ${index + 1}`} 
                         />
                     ))}
                   </GalleryContainer>
@@ -941,13 +931,11 @@ const JurorVoting: React.FC = () => {
                       </CriteriaInfo>
                       <ScoreInput
                         type="number"
+                        step="0.01"
                         min="1"
                         max="10"
                         value={scores[key as keyof Scores] || ''}
-                        onChange={(e) => handleScoreChange(
-                          key as keyof Scores, 
-                          parseInt(e.target.value) || 0
-                        )}
+                        onChange={(e) => handleScoreChange(key as keyof Scores, e.target.value)}
                         disabled={hasVoted && !isEditing}
                         placeholder="1-10"
                       />
@@ -957,13 +945,13 @@ const JurorVoting: React.FC = () => {
 
                 <ButtonsSection>
                   {hasVoted && !isEditing ? (
-                    <ActionButton variant="secondary" onClick={handleEditVote}>
+                    <ActionButton $variant="secondary" onClick={handleEditVote}>
                       <Edit3 size={20} />
                       Editar Avaliação
                     </ActionButton>
                   ) : (
                     <ActionButton 
-                      variant={hasVoted ? "success" : "primary"}
+                      $variant={hasVoted ? "success" : "primary"}
                       onClick={handleSubmitVote}
                       disabled={!allScoresValid}
                     >

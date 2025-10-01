@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled, { createGlobalStyle } from 'styled-components';
+import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import { Plus, Edit, Trash2, Eye, LogOut, Users, Trophy, BarChart3, Award, User, X } from 'lucide-react';
@@ -939,7 +939,7 @@ const AdminDashboard: React.FC = () => {
     name: '',
     character: '',
     anime: '',
-    image_urls: '',
+    image_urls: [''],
     description: ''
   });
 
@@ -950,7 +950,7 @@ const AdminDashboard: React.FC = () => {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image_urls: profile.image_urls.join('\n'),
+        image_urls: profile.image_urls.length > 0 ? profile.image_urls : [''],
         description: profile.description
       });
     } else {
@@ -959,7 +959,7 @@ const AdminDashboard: React.FC = () => {
         name: '',
         character: '',
         anime: '',
-        image_urls: '',
+        image_urls: [''],
         description: ''
       });
     }
@@ -971,26 +971,35 @@ const AdminDashboard: React.FC = () => {
     setEditingProfile(null);
   };
 
+  const handleImageUrlChange = (index: number, value: string) => {
+    const newImageUrls = [...formData.image_urls];
+    newImageUrls[index] = value;
+    setFormData({ ...formData, image_urls: newImageUrls });
+  };
+
+  const addImageUrlInput = () => {
+    setFormData({ ...formData, image_urls: [...formData.image_urls, ''] });
+  };
+
+  const removeImageUrlInput = (index: number) => {
+    const newImageUrls = formData.image_urls.filter((_, i) => i !== index);
+    setFormData({ ...formData, image_urls: newImageUrls });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const image_urls = formData.image_urls.split('\n').filter(url => url.trim() !== '');
+    const image_urls = formData.image_urls.filter(url => url.trim() !== '');
 
     if (editingProfile) {
       updateCosplay(editingProfile.id, {
-        name: formData.name,
-        character: formData.character,
-        anime: formData.anime,
+        ...formData,
         image_urls: image_urls,
-        description: formData.description
       });
     } else {
       addCosplay({
-        name: formData.name,
-        character: formData.character,
-        anime: formData.anime,
+        ...formData,
         image_urls: image_urls,
-        description: formData.description
       });
     }
 
@@ -1134,7 +1143,12 @@ const AdminDashboard: React.FC = () => {
                 <StatCard> 
                   <StatValue>
                     {state.votingStatistics?.averageScores ? 
-                      (Object.values(state.votingStatistics.averageScores).reduce((sum, score) => sum + score, 0) / 5).toFixed(1) 
+                      (() => {
+                        const scores = Object.values(state.votingStatistics.averageScores).filter(s => typeof s === 'number' && !isNaN(s));
+                        if (scores.length === 0) return '0.0';
+                        const sum = scores.reduce((acc, score) => acc + score, 0);
+                        return (sum / 3).toFixed(1);
+                      })()
                       : '0.0'
                     }
                   </StatValue>
@@ -1175,7 +1189,12 @@ const AdminDashboard: React.FC = () => {
                         </VotesTableCell>
                         <VotesTableCell>
                           <strong style={{ color: '#667eea' }}>
-                            {(Object.values(vote.scores).reduce((sum, score) => sum + score, 0) / 3).toFixed(1)}
+                            {(() => {
+                              const scores = Object.values(vote.scores).map(s => parseFloat(s as any)).filter(s => !isNaN(s));
+                              if (scores.length === 0) return '0.0';
+                              const sum = scores.reduce((acc, score) => acc + score, 0);
+                              return (sum / 3).toFixed(1);
+                            })()}
                           </strong>
                         </VotesTableCell>
                         <VotesTableCell>
@@ -1355,13 +1374,21 @@ const AdminDashboard: React.FC = () => {
                 onChange={(e) => setFormData({...formData, anime: e.target.value})}
                 required
               />
-              <Textarea
-                placeholder="URLs das Imagens (uma por linha)"
-                value={formData.image_urls}
-                onChange={(e) => setFormData({...formData, image_urls: e.target.value})}
-                required
-                rows={5}
-              />
+              {formData.image_urls.map((url, index) => (
+                <div key={index} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Input
+                    type="url"
+                    placeholder={`URL da Imagem ${index + 1}${index === 0 ? ' (Principal)' : ''}`}
+                    value={url}
+                    onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                    required={index === 0}
+                  />
+                  {formData.image_urls.length > 1 && (
+                    <Button type="button" onClick={() => removeImageUrlInput(index)} $variant="secondary">Remover</Button>
+                  )}
+                </div>
+              ))}
+              <Button type="button" onClick={addImageUrlInput} $variant="secondary">Adicionar mais imagens</Button>
               <Textarea
                 placeholder="Descrição do cosplay"
                 value={formData.description}
