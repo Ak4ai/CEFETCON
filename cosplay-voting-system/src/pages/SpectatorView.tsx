@@ -98,6 +98,8 @@ interface VoteAverages {
   indumentaria: number;
   similaridade: number;
   qualidade: number;
+  interpretacao?: number;
+  performance?: number;
   finalAverage: number;
   totalVotes: number;
 }
@@ -450,10 +452,12 @@ const BackButton = styled.button`
   }
 `;
 
-const categoryLabels = {
+const categoryLabels: Record<string, string> = {
   indumentaria: 'Indumentária',
   similaridade: 'Similaridade',
   qualidade: 'Qualidade',
+  interpretacao: 'Interpretação',
+  performance: 'Performance'
 };
 
 const SpectatorView: React.FC = () => {
@@ -606,12 +610,21 @@ const SpectatorView: React.FC = () => {
         </ProfileInfo>
 
         <ScoresGrid>
-          {Object.entries(categoryLabels).map(([key, label]) => (
+          {Object.entries(categoryLabels)
+            .filter(([key]) => {
+              // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+              if (currentProfile?.modality === 'desfile') {
+                return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+              }
+              // Para modalidade apresentação, mostrar todos os 5 critérios
+              return true;
+            })
+            .map(([key, label]) => (
             <ScoreCard key={key}>
               <ScoreTitle>{label}</ScoreTitle>
               <ScoreValue>
                 <CounterRoll 
-                  value={averages ? averages[key as keyof typeof categoryLabels] : 0}
+                  value={averages ? (averages as any)[key] ?? 0 : 0}
                   decimals={1}
                   fontSize="clamp(1.5rem, 3vw, 2.5rem)"
                 />

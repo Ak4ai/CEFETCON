@@ -15,6 +15,13 @@ export default defineConfig({
       'modern-waves-wave.loca.lt',
       'cosplay-frontend.loca.lt',
       'avifaunally-psoatic-shantell.ngrok-free.dev'
-    ]
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

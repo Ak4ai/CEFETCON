@@ -36,30 +36,30 @@ const seedDatabase = async () => {
           name: 'Maria Silva',
           character: 'Nezuko Kamado',
           anime: 'Demon Slayer',
-          image_url: 'https://example.com/nezuko.jpg',
+          image_urls: ['https://example.com/nezuko.jpg'],
           description: 'Cosplay incrível da Nezuko com detalhes perfeitos no kimono e na caixa de bambu.'
         },
         {
           name: 'João Santos',
           character: 'Edward Elric',
           anime: 'Fullmetal Alchemist',
-          image_url: 'https://example.com/edward.jpg',
+          image_urls: ['https://example.com/edward.jpg'],
           description: 'Representação impressionante do Edward com automail funcional e casaco vermelho autêntico.'
         },
         {
           name: 'Ana Costa',
           character: 'Sailor Moon',
           anime: 'Sailor Moon',
-          image_url: 'https://example.com/sailormoon.jpg',
+          image_urls: ['https://example.com/sailormoon.jpg'],
           description: 'Cosplay clássico da Sailor Moon com todos os acessórios e poses icônicas.'
         }
       ];
 
       for (const profile of profiles) {
         await query(`
-          INSERT INTO cosplay_profiles (name, character, anime, image_url, description, created_by)
+          INSERT INTO cosplay_profiles (name, character, anime, image_urls, description, created_by)
           VALUES ($1, $2, $3, $4, $5, $6)
-        `, [profile.name, profile.character, profile.anime, profile.image_url, profile.description, adminId]);
+        `, [profile.name, profile.character, profile.anime, profile.image_urls, profile.description, adminId]);
       }
       console.log('✅ Perfis de exemplo criados');
     }

@@ -66,6 +66,8 @@ router.post('/', [
   body('indumentaria').isInt({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
   body('similaridade').isInt({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
   body('qualidade').isInt({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
+  body('interpretacao').optional().isInt({ min: 1, max: 10 }).withMessage('Nota de interpretação deve ser entre 1 e 10'),
+  body('performance').optional().isInt({ min: 1, max: 10 }).withMessage('Nota de performance deve ser entre 1 e 10'),
   body('submitted').isBoolean().withMessage('Status de submissão deve ser boolean')
 ], authenticateToken, requireJuror, async (req, res) => {
   try {
@@ -83,6 +85,8 @@ router.post('/', [
       indumentaria,
       similaridade,
       qualidade,
+      interpretacao,
+      performance,
       submitted 
     } = req.body;
 
@@ -114,21 +118,23 @@ router.post('/', [
           indumentaria = $1,
           similaridade = $2,
           qualidade = $3,
-          submitted = $4,
+          interpretacao = $4,
+          performance = $5,
+          submitted = $6,
           updated_at = CURRENT_TIMESTAMP
-        WHERE juror_id = $5 AND cosplay_id = $6
+        WHERE juror_id = $7 AND cosplay_id = $8
         RETURNING *
-      `, [indumentaria, similaridade, qualidade, submitted, req.user.id, cosplay_id]);
+      `, [indumentaria, similaridade, qualidade, interpretacao || null, performance || null, submitted, req.user.id, cosplay_id]);
       
       message = 'Voto atualizado com sucesso';
       console.log(`✅ Voto atualizado: ${req.user.name} para ${profile.name} - ${profile.character}`);
     } else {
       // Criar novo voto
       result = await query(`
-        INSERT INTO votes (juror_id, cosplay_id, indumentaria, similaridade, qualidade, submitted)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO votes (juror_id, cosplay_id, indumentaria, similaridade, qualidade, interpretacao, performance, submitted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [req.user.id, cosplay_id, indumentaria, similaridade, qualidade, submitted]);
+      `, [req.user.id, cosplay_id, indumentaria, similaridade, qualidade, interpretacao || null, performance || null, submitted]);
       
       message = 'Voto criado com sucesso';
       console.log(`✅ Novo voto: ${req.user.name} para ${profile.name} - ${profile.character}`);
@@ -303,9 +309,9 @@ router.get('/averages/:profileId', async (req, res) => {
   try {
     const { profileId } = req.params;
 
-    // Verificar se o perfil existe
+    // Verificar se o perfil existe e pegar a modalidade
     const profileResult = await query(
-      'SELECT id, name, character FROM cosplay_profiles WHERE id = $1',
+      'SELECT id, name, character, modality FROM cosplay_profiles WHERE id = $1',
       [profileId]
     );
 
@@ -316,27 +322,57 @@ router.get('/averages/:profileId', async (req, res) => {
       });
     }
 
-    // Calcular médias apenas dos votos submetidos
-    const averagesResult = await query(`
-      SELECT 
-        COUNT(*) as total_votes,
-        COALESCE(AVG(indumentaria), 0) as avg_indumentaria,
-        COALESCE(AVG(similaridade), 0) as avg_similaridade,
-        COALESCE(AVG(qualidade), 0) as avg_qualidade,
-        COALESCE(AVG((indumentaria + similaridade + qualidade) / 3.0), 0) as final_average
-      FROM votes 
-      WHERE cosplay_id = $1 AND submitted = true
-    `, [profileId]);
+    const profile = profileResult.rows[0];
+    const modality = profile.modality || 'desfile';
+
+    // Calcular médias baseado na modalidade
+    let averagesResult;
+    if (modality === 'presentation') {
+      // Para apresentação: calcular média de 5 critérios
+      averagesResult = await query(`
+        SELECT 
+          COUNT(*) as total_votes,
+          COALESCE(AVG(indumentaria), 0) as avg_indumentaria,
+          COALESCE(AVG(similaridade), 0) as avg_similaridade,
+          COALESCE(AVG(qualidade), 0) as avg_qualidade,
+          COALESCE(AVG(interpretacao), 0) as avg_interpretacao,
+          COALESCE(AVG(performance), 0) as avg_performance,
+          COALESCE(AVG((indumentaria + similaridade + qualidade + 
+                       COALESCE(interpretacao, 0) + COALESCE(performance, 0)) / 5.0), 0) as final_average
+        FROM votes 
+        WHERE cosplay_id = $1 AND submitted = true
+      `, [profileId]);
+    } else {
+      // Para desfile: calcular média de 3 critérios
+      averagesResult = await query(`
+        SELECT 
+          COUNT(*) as total_votes,
+          COALESCE(AVG(indumentaria), 0) as avg_indumentaria,
+          COALESCE(AVG(similaridade), 0) as avg_similaridade,
+          COALESCE(AVG(qualidade), 0) as avg_qualidade,
+          COALESCE(AVG((indumentaria + similaridade + qualidade) / 3.0), 0) as final_average
+        FROM votes 
+        WHERE cosplay_id = $1 AND submitted = true
+      `, [profileId]);
+    }
 
     const result = averagesResult.rows[0];
 
-    res.json({
+    const response = {
       indumentaria: parseFloat(result.avg_indumentaria || 0),
       similaridade: parseFloat(result.avg_similaridade || 0),
       qualidade: parseFloat(result.avg_qualidade || 0),
       finalAverage: parseFloat(result.final_average || 0),
       totalVotes: parseInt(result.total_votes || 0)
-    });
+    };
+
+    // Adicionar interpretacao e performance se for modalidade apresentação
+    if (modality === 'presentation') {
+      response.interpretacao = parseFloat(result.avg_interpretacao || 0);
+      response.performance = parseFloat(result.avg_performance || 0);
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Erro ao calcular médias do perfil:', error);
     res.status(500).json({

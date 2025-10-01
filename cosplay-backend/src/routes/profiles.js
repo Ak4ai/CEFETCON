@@ -57,75 +57,67 @@ router.get('/ranking', authenticateToken, async (req, res) => {
   try {
     console.log('🏆 Buscando ranking de perfis...');
     
-    // Buscar perfil atualmente visível
-    const currentProfileResult = await query(`
-      SELECT cp.id as current_profile_id
-      FROM voting_control vc
-      LEFT JOIN cosplay_profiles cp ON vc.current_visible_profile_id = cp.id
-      ORDER BY vc.id DESC
-      LIMIT 1
-    `);
-    
-    const currentProfileId = currentProfileResult.rows[0]?.current_profile_id;
-    console.log('🎯 Perfil atual sendo votado:', currentProfileId);
-    
-    // Buscar perfis completados
-    const completedResult = await query(`
+    // Buscar TODOS os perfis com votos e calcular suas notas em tempo real
+    // Primeiro, buscar perfis de desfile
+    const desfileResult = await query(`
       SELECT 
-        id,
-        name,
-        character,
-        anime,
-        final_score,
-        total_final_votes,
-        voting_status,
-        'completed' as source
-      FROM cosplay_profiles
-      WHERE voting_status = 'completed' AND final_score IS NOT NULL
+        cp.id,
+        cp.name,
+        cp.character,
+        cp.anime,
+        COALESCE(cp.modality, 'desfile') as modality,
+        cp.voting_status,
+        cp.final_score as saved_final_score,
+        cp.total_final_votes as saved_total_votes,
+        COUNT(v.id) FILTER (WHERE v.submitted = true) as current_total_votes,
+        ROUND(AVG((v.indumentaria + v.similaridade + v.qualidade) / 3.0), 2) as current_avg_score
+      FROM cosplay_profiles cp
+      LEFT JOIN votes v ON cp.id = v.cosplay_id
+      WHERE COALESCE(cp.modality, 'desfile') = 'desfile'
+      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.final_score, cp.total_final_votes
+      HAVING COUNT(v.id) FILTER (WHERE v.submitted = true) > 0
     `);
     
-    let rankingData = [...completedResult.rows];
+    // Buscar perfis de apresentação
+    const presentationResult = await query(`
+      SELECT 
+        cp.id,
+        cp.name,
+        cp.character,
+        cp.anime,
+        COALESCE(cp.modality, 'desfile') as modality,
+        cp.voting_status,
+        cp.final_score as saved_final_score,
+        cp.total_final_votes as saved_total_votes,
+        COUNT(v.id) FILTER (WHERE v.submitted = true) as current_total_votes,
+        ROUND(AVG((v.indumentaria + v.similaridade + v.qualidade + 
+                   COALESCE(v.interpretacao, 0) + COALESCE(v.performance, 0)) / 5.0), 2) as current_avg_score
+      FROM cosplay_profiles cp
+      LEFT JOIN votes v ON cp.id = v.cosplay_id
+      WHERE cp.modality = 'presentation'
+      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.final_score, cp.total_final_votes
+      HAVING COUNT(v.id) FILTER (WHERE v.submitted = true) > 0
+    `);
     
-    // Se há um perfil atual sendo votado, calcular sua nota em tempo real
-    if (currentProfileId) {
-      const currentProfileResult = await query(`
-        SELECT 
-          cp.id,
-          cp.name,
-          cp.character,
-          cp.anime,
-          cp.voting_status,
-          COUNT(v.id) FILTER (WHERE v.submitted = true) as total_votes,
-          ROUND(AVG((v.indumentaria + v.similaridade + v.qualidade) / 3.0), 2) as current_avg_score
-        FROM cosplay_profiles cp
-        LEFT JOIN votes v ON cp.id = v.cosplay_id
-        WHERE cp.id = $1
-        GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.voting_status
-      `, [currentProfileId]);
-      
-      if (currentProfileResult.rows.length > 0) {
-        const currentProfile = currentProfileResult.rows[0];
-        console.log('📊 Perfil atual com estatísticas:', currentProfile);
-        
-        // Adicionar perfil atual ao ranking com nota em tempo real
-        const currentProfileRanking = {
-          id: currentProfile.id,
-          name: currentProfile.name,
-          character: currentProfile.character,
-          anime: currentProfile.anime,
-          final_score: currentProfile.current_avg_score,
-          total_final_votes: parseInt(currentProfile.total_votes),
-          voting_status: 'active',
-          source: 'current'
-        };
-        
-        // Se não é um perfil já completado, adicionar ao ranking
-        const isAlreadyCompleted = rankingData.some(p => p.id === currentProfile.id);
-        if (!isAlreadyCompleted && currentProfile.current_avg_score > 0) {
-          rankingData.push(currentProfileRanking);
-        }
-      }
-    }
+    // Combinar resultados
+    const allProfiles = [...desfileResult.rows, ...presentationResult.rows];
+    
+    // Mapear para o formato do ranking, usando nota em tempo real se disponível
+    const rankingData = allProfiles.map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      character: profile.character,
+      anime: profile.anime,
+      modality: profile.modality || 'desfile',
+      // Usar a nota salva se o perfil está completed, caso contrário usar a nota em tempo real
+      final_score: profile.voting_status === 'completed' && profile.saved_final_score 
+        ? parseFloat(profile.saved_final_score) 
+        : profile.current_avg_score,
+      total_final_votes: profile.voting_status === 'completed' && profile.saved_total_votes
+        ? parseInt(profile.saved_total_votes)
+        : parseInt(profile.current_total_votes),
+      voting_status: profile.voting_status
+    }));
     
     // Ordenar por nota final (desc) e total de votos (desc)
     rankingData.sort((a, b) => {
@@ -136,7 +128,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
     });
     
     console.log('🏆 Ranking final com', rankingData.length, 'perfis:', 
-      rankingData.map(p => `${p.name} (${p.final_score})`));
+      rankingData.map(p => `${p.name} (${p.final_score}) - ${p.modality}`));
     
     res.json({ ranking: rankingData });
   } catch (error) {
@@ -188,7 +180,8 @@ router.post('/', [
   body('anime').isLength({ min: 2 }).withMessage('Anime deve ter pelo menos 2 caracteres'),
   body('image_urls').optional().isArray().withMessage('URLs da imagem deve ser um array'),
   body('image_urls.*').optional().isURL().withMessage('URL da imagem inválida'),
-  body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa')
+  body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa'),
+  body('modality').optional().isIn(['desfile', 'presentation']).withMessage('Modalidade deve ser desfile ou presentation')
 ], authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Verificar erros de validação
@@ -200,14 +193,14 @@ router.post('/', [
       });
     }
 
-    const { name, character, anime, image_urls, description } = req.body;
+    const { name, character, anime, image_urls, description, modality } = req.body;
 
     // Criar novo perfil
     const result = await query(`
-      INSERT INTO cosplay_profiles (name, character, anime, image_urls, description, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO cosplay_profiles (name, character, anime, image_urls, description, created_by, modality)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [name, character, anime, image_urls || null, description || null, req.user.id]);
+    `, [name, character, anime, image_urls || null, description || null, req.user.id, modality || 'desfile']);
 
     const newProfile = result.rows[0];
 
@@ -233,7 +226,8 @@ router.put('/:id', [
   body('anime').optional().isLength({ min: 2 }).withMessage('Anime deve ter pelo menos 2 caracteres'),
   body('image_urls').optional().isArray().withMessage('URLs da imagem deve ser um array'),
   body('image_urls.*').optional().isURL().withMessage('URL da imagem inválida'),
-  body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa')
+  body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa'),
+  body('modality').optional().isIn(['desfile', 'presentation']).withMessage('Modalidade deve ser "desfile" ou "presentation"')
 ], authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Verificar erros de validação
@@ -246,7 +240,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { name, character, anime, image_urls, description } = req.body;
+    const { name, character, anime, image_urls, description, modality } = req.body;
 
     // Verificar se perfil existe
     const existingProfile = await query('SELECT id FROM cosplay_profiles WHERE id = $1', [id]);
@@ -263,28 +257,33 @@ router.put('/:id', [
     let paramCount = 1;
 
     if (name !== undefined) {
-      updateFields.push(`name = ${paramCount}`);
+      updateFields.push(`name = $${paramCount}`);
       updateValues.push(name);
       paramCount++;
     }
     if (character !== undefined) {
-      updateFields.push(`character = ${paramCount}`);
+      updateFields.push(`character = $${paramCount}`);
       updateValues.push(character);
       paramCount++;
     }
     if (anime !== undefined) {
-      updateFields.push(`anime = ${paramCount}`);
+      updateFields.push(`anime = $${paramCount}`);
       updateValues.push(anime);
       paramCount++;
     }
     if (image_urls !== undefined) {
-      updateFields.push(`image_urls = ${paramCount}`);
+      updateFields.push(`image_urls = $${paramCount}`);
       updateValues.push(image_urls);
       paramCount++;
     }
     if (description !== undefined) {
-      updateFields.push(`description = ${paramCount}`);
+      updateFields.push(`description = $${paramCount}`);
       updateValues.push(description);
+      paramCount++;
+    }
+    if (modality !== undefined) {
+      updateFields.push(`modality = $${paramCount}`);
+      updateValues.push(modality);
       paramCount++;
     }
 
@@ -301,7 +300,7 @@ router.put('/:id', [
     const updateQuery = `
       UPDATE cosplay_profiles 
       SET ${updateFields.join(', ')}
-      WHERE id = ${paramCount}
+      WHERE id = $${paramCount}
       RETURNING *
     `;
 
