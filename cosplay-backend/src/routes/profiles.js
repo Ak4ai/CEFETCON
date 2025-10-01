@@ -96,7 +96,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
           cp.anime,
           cp.voting_status,
           COUNT(v.id) FILTER (WHERE v.submitted = true) as total_votes,
-          ROUND(AVG((v.craftsmanship + v.accuracy + v.creativity + v.presentation + v.overall_impression) / 5.0), 2) as current_avg_score
+          ROUND(AVG((v.indumentaria + v.similaridade + v.qualidade) / 3.0), 2) as current_avg_score
         FROM cosplay_profiles cp
         LEFT JOIN votes v ON cp.id = v.cosplay_id
         WHERE cp.id = $1
@@ -392,20 +392,16 @@ router.get('/:id/results', authenticateToken, async (req, res) => {
     let averages = {};
     if (votes.length > 0) {
       const totals = votes.reduce((acc, vote) => ({
-        craftsmanship: acc.craftsmanship + vote.craftsmanship,
-        accuracy: acc.accuracy + vote.accuracy,
-        creativity: acc.creativity + vote.creativity,
-        presentation: acc.presentation + vote.presentation,
-        overall_impression: acc.overall_impression + vote.overall_impression,
-      }), { craftsmanship: 0, accuracy: 0, creativity: 0, presentation: 0, overall_impression: 0 });
+        indumentaria: acc.indumentaria + vote.indumentaria,
+        similaridade: acc.similaridade + vote.similaridade,
+        qualidade: acc.qualidade + vote.qualidade,
+      }), { indumentaria: 0, similaridade: 0, qualidade: 0 });
 
       averages = {
-        craftsmanship: (totals.craftsmanship / votes.length).toFixed(2),
-        accuracy: (totals.accuracy / votes.length).toFixed(2),
-        creativity: (totals.creativity / votes.length).toFixed(2),
-        presentation: (totals.presentation / votes.length).toFixed(2),
-        overall_impression: (totals.overall_impression / votes.length).toFixed(2),
-        total: ((totals.craftsmanship + totals.accuracy + totals.creativity + totals.presentation + totals.overall_impression) / (votes.length * 5)).toFixed(2)
+        indumentaria: (totals.indumentaria / votes.length).toFixed(2),
+        similaridade: (totals.similaridade / votes.length).toFixed(2),
+        qualidade: (totals.qualidade / votes.length).toFixed(2),
+        total: ((totals.indumentaria + totals.similaridade + totals.qualidade) / (votes.length * 3)).toFixed(2)
       };
     }
 

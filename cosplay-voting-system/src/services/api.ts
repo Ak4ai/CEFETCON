@@ -313,11 +313,9 @@ export const voteService = {
         jurorId: vote.juror_id.toString(),
         cosplayId: vote.cosplay_id.toString(),
         scores: {
-          craftsmanship: vote.craftsmanship,
-          accuracy: vote.accuracy,
-          creativity: vote.creativity,
-          presentation: vote.presentation,
-          overall: vote.overall_impression
+          indumentaria: vote.indumentaria,
+          similaridade: vote.similaridade,
+          qualidade: vote.qualidade,
         },
         submitted: vote.submitted
       }));
@@ -330,11 +328,9 @@ export const voteService = {
     try {
       const response = await api.post('/votes', {
         cosplay_id: parseInt(cosplayId),
-        craftsmanship: scores.craftsmanship,
-        accuracy: scores.accuracy,
-        creativity: scores.creativity,
-        presentation: scores.presentation,
-        overall_impression: scores.overall,
+        indumentaria: scores.indumentaria,
+        similaridade: scores.similaridade,
+        qualidade: scores.qualidade,
         submitted
       });
       
@@ -343,11 +339,9 @@ export const voteService = {
         jurorId: vote.juror_id.toString(),
         cosplayId: vote.cosplay_id.toString(),
         scores: {
-          craftsmanship: vote.craftsmanship,
-          accuracy: vote.accuracy,
-          creativity: vote.creativity,
-          presentation: vote.presentation,
-          overall: vote.overall_impression
+          indumentaria: vote.indumentaria,
+          similaridade: vote.similaridade,
+          qualidade: vote.qualidade,
         },
         submitted: vote.submitted
       };
@@ -389,11 +383,9 @@ export const voteService = {
         jurorId: vote.juror_id.toString(),
         cosplayId: vote.cosplay_id.toString(),
         scores: {
-          craftsmanship: vote.craftsmanship,
-          accuracy: vote.accuracy,
-          creativity: vote.creativity,
-          presentation: vote.presentation,
-          overall: vote.overall_impression
+          indumentaria: vote.indumentaria,
+          similaridade: vote.similaridade,
+          qualidade: vote.qualidade,
         },
         submitted: vote.submitted
       }));
