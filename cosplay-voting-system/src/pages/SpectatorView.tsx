@@ -584,7 +584,7 @@ const SpectatorView: React.FC = () => {
         <ProfileInfo>
           <ProfileInfoContainer>
             <ProfileAvatar 
-              src={currentProfile.image} 
+              src={currentProfile.image_urls[0]} 
               alt={`Avatar de ${currentProfile.name}`}
               onError={(e) => {
                 e.currentTarget.src = 'https://via.placeholder.com/80x80?text=👤';

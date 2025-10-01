@@ -35,7 +35,7 @@ router.get('/public', async (req, res) => {
   try {
     const result = await query(`
       SELECT 
-        cp.id, cp.name, cp.character, cp.anime, cp.image_url, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes
+        cp.id, cp.name, cp.character, cp.anime, cp.image_urls, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes
       FROM cosplay_profiles cp
       ORDER BY cp.created_at DESC
     `);
@@ -186,7 +186,8 @@ router.post('/', [
   body('name').isLength({ min: 2 }).withMessage('Nome deve ter pelo menos 2 caracteres'),
   body('character').isLength({ min: 2 }).withMessage('Personagem deve ter pelo menos 2 caracteres'),
   body('anime').isLength({ min: 2 }).withMessage('Anime deve ter pelo menos 2 caracteres'),
-  body('image_url').optional().isURL().withMessage('URL da imagem inválida'),
+  body('image_urls').optional().isArray().withMessage('URLs da imagem deve ser um array'),
+  body('image_urls.*').optional().isURL().withMessage('URL da imagem inválida'),
   body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa')
 ], authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -199,14 +200,14 @@ router.post('/', [
       });
     }
 
-    const { name, character, anime, image_url, description } = req.body;
+    const { name, character, anime, image_urls, description } = req.body;
 
     // Criar novo perfil
     const result = await query(`
-      INSERT INTO cosplay_profiles (name, character, anime, image_url, description, created_by)
+      INSERT INTO cosplay_profiles (name, character, anime, image_urls, description, created_by)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [name, character, anime, image_url || null, description || null, req.user.id]);
+    `, [name, character, anime, image_urls || null, description || null, req.user.id]);
 
     const newProfile = result.rows[0];
 
@@ -230,7 +231,8 @@ router.put('/:id', [
   body('name').optional().isLength({ min: 2 }).withMessage('Nome deve ter pelo menos 2 caracteres'),
   body('character').optional().isLength({ min: 2 }).withMessage('Personagem deve ter pelo menos 2 caracteres'),
   body('anime').optional().isLength({ min: 2 }).withMessage('Anime deve ter pelo menos 2 caracteres'),
-  body('image_url').optional().isURL().withMessage('URL da imagem inválida'),
+  body('image_urls').optional().isArray().withMessage('URLs da imagem deve ser um array'),
+  body('image_urls.*').optional().isURL().withMessage('URL da imagem inválida'),
   body('description').optional().isLength({ max: 5000 }).withMessage('Descrição muito longa')
 ], authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -244,7 +246,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { name, character, anime, image_url, description } = req.body;
+    const { name, character, anime, image_urls, description } = req.body;
 
     // Verificar se perfil existe
     const existingProfile = await query('SELECT id FROM cosplay_profiles WHERE id = $1', [id]);
@@ -261,27 +263,27 @@ router.put('/:id', [
     let paramCount = 1;
 
     if (name !== undefined) {
-      updateFields.push(`name = $${paramCount}`);
+      updateFields.push(`name = ${paramCount}`);
       updateValues.push(name);
       paramCount++;
     }
     if (character !== undefined) {
-      updateFields.push(`character = $${paramCount}`);
+      updateFields.push(`character = ${paramCount}`);
       updateValues.push(character);
       paramCount++;
     }
     if (anime !== undefined) {
-      updateFields.push(`anime = $${paramCount}`);
+      updateFields.push(`anime = ${paramCount}`);
       updateValues.push(anime);
       paramCount++;
     }
-    if (image_url !== undefined) {
-      updateFields.push(`image_url = $${paramCount}`);
-      updateValues.push(image_url);
+    if (image_urls !== undefined) {
+      updateFields.push(`image_urls = ${paramCount}`);
+      updateValues.push(image_urls);
       paramCount++;
     }
     if (description !== undefined) {
-      updateFields.push(`description = $${paramCount}`);
+      updateFields.push(`description = ${paramCount}`);
       updateValues.push(description);
       paramCount++;
     }
@@ -299,7 +301,7 @@ router.put('/:id', [
     const updateQuery = `
       UPDATE cosplay_profiles 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramCount}
+      WHERE id = ${paramCount}
       RETURNING *
     `;
 

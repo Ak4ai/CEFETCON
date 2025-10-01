@@ -116,7 +116,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false, // Será definido pelo contexto
         voting_status: profile.voting_status,
@@ -137,7 +137,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false, // Será definido pelo contexto
         voting_status: profile.voting_status,
@@ -158,7 +158,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false, // Será definido pelo contexto
         voting_status: profile.voting_status,
@@ -174,7 +174,7 @@ export const profileService = {
     name: string;
     character: string;
     anime: string;
-    image_url: string;
+    image_urls: string[];
     description: string;
   }): Promise<CosplayProfile> {
     try {
@@ -185,7 +185,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false,
         voting_status: 'pending',
@@ -201,7 +201,7 @@ export const profileService = {
     name: string;
     character: string;
     anime: string;
-    image_url: string;
+    image_urls: string[];
     description: string;
   }>): Promise<CosplayProfile> {
     try {
@@ -212,7 +212,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false,
         voting_status: profile.voting_status,
@@ -272,7 +272,7 @@ export const profileService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: false,
         voting_status: profile.voting_status,
@@ -414,7 +414,7 @@ export const votingService = {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image_url || '',
+        image_urls: profile.image_urls || [],
         description: profile.description || '',
         isVisible: true,
         voting_status: profile.voting_status || 'active',
