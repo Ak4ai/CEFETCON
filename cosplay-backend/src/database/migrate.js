@@ -46,17 +46,17 @@ const migrateDatabase = async () => {
     `);
     console.log('   ✅ Tabela "cosplay_profiles" pronta.');
 
-    // Tabela de votos com os novos critérios
+    // Tabela de votos com os novos critérios (usando NUMERIC para aceitar decimais)
     await client.query(`
       CREATE TABLE IF NOT EXISTS votes (
         id SERIAL PRIMARY KEY,
         juror_id INTEGER REFERENCES users(id),
         cosplay_id INTEGER REFERENCES cosplay_profiles(id),
-        indumentaria INTEGER CHECK (indumentaria >= 1 AND indumentaria <= 10),
-        similaridade INTEGER CHECK (similaridade >= 1 AND similaridade <= 10),
-        qualidade INTEGER CHECK (qualidade >= 1 AND qualidade <= 10),
-        interpretacao INTEGER CHECK (interpretacao >= 1 AND interpretacao <= 10),
-        performance INTEGER CHECK (performance >= 1 AND performance <= 10),
+        indumentaria NUMERIC(4,2) CHECK (indumentaria >= 1 AND indumentaria <= 10),
+        similaridade NUMERIC(4,2) CHECK (similaridade >= 1 AND similaridade <= 10),
+        qualidade NUMERIC(4,2) CHECK (qualidade >= 1 AND qualidade <= 10),
+        interpretacao NUMERIC(4,2) CHECK (interpretacao >= 1 AND interpretacao <= 10),
+        performance NUMERIC(4,2) CHECK (performance >= 1 AND performance <= 10),
         submitted BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -137,11 +137,53 @@ const migrateDatabase = async () => {
     if (!votesColumns.rows.find(c => c.column_name === 'interpretacao')) {
         await client.query(`
             ALTER TABLE votes
-            ADD COLUMN interpretacao INTEGER CHECK (interpretacao >= 1 AND interpretacao <= 10),
-            ADD COLUMN performance INTEGER CHECK (performance >= 1 AND performance <= 10);
+            ADD COLUMN interpretacao NUMERIC(4,2) CHECK (interpretacao >= 1 AND interpretacao <= 10),
+            ADD COLUMN performance NUMERIC(4,2) CHECK (performance >= 1 AND performance <= 10);
         `);
         console.log('   ✅ Migrado "votes": Colunas de apresentação adicionadas.');
     }
+    
+    // d) Migrar tipos de dados para NUMERIC(4,2) se ainda forem INTEGER
+    const votesColumnTypes = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name='votes' 
+      AND column_name IN ('indumentaria', 'similaridade', 'qualidade', 'interpretacao', 'performance')
+    `);
+    const needsTypeConversion = votesColumnTypes.rows.some(c => c.data_type === 'integer');
+    if (needsTypeConversion) {
+        await client.query(`
+            ALTER TABLE votes 
+            ALTER COLUMN indumentaria TYPE NUMERIC(4,2),
+            ALTER COLUMN similaridade TYPE NUMERIC(4,2),
+            ALTER COLUMN qualidade TYPE NUMERIC(4,2),
+            ALTER COLUMN interpretacao TYPE NUMERIC(4,2),
+            ALTER COLUMN performance TYPE NUMERIC(4,2);
+        `);
+        console.log('   ✅ Migrado "votes": Colunas convertidas de INTEGER para NUMERIC(4,2).');
+    }
+    
+    // e) Migrar final_score para NUMERIC(4,2) se ainda for INTEGER
+    const finalScoreType = await client.query(`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name='cosplay_profiles' AND column_name='final_score'
+    `);
+    if (finalScoreType.rows.length > 0 && finalScoreType.rows[0].data_type === 'integer') {
+        await client.query(`
+            ALTER TABLE cosplay_profiles 
+            ALTER COLUMN final_score TYPE NUMERIC(4,2);
+        `);
+        console.log('   ✅ Migrado "cosplay_profiles": final_score convertido para NUMERIC(4,2).');
+    }
+    
+    // f) Preencher modality com 'desfile' onde for NULL
+    await client.query(`
+        UPDATE cosplay_profiles 
+        SET modality = 'desfile' 
+        WHERE modality IS NULL;
+    `);
+    console.log('   ✅ Migrado "cosplay_profiles": Modalidade padrão aplicada.');
 
     // 3. Dados Iniciais
     console.log('3. Inserindo dados iniciais se necessário...');
