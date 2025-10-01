@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
@@ -92,6 +92,57 @@ const UserInfo = styled.div`
       font-size: 0.9rem;
     }
   }
+`;
+
+const ModeSwitch = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--surface);
+  
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: center;
+  }
+`;
+
+const ModeSwitchLabel = styled.span`
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+`;
+
+const ModeSwitchButtons = styled.div`
+  display: flex;
+  gap: 5px;
+`;
+
+const ModeSwitchButton = styled.button<{ $active?: boolean }>`
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  
+  ${props => props.$active ? `
+    background: var(--accent-purple);
+    color: white;
+    box-shadow: 0 2px 8px rgba(167, 139, 250, 0.3);
+  ` : `
+    background: var(--surface);
+    color: var(--text-secondary);
+    
+    &:hover {
+      background: var(--surface-hover);
+      color: var(--text-primary);
+    }
+  `}
 `;
 
 const LogoutButton = styled.button`
@@ -368,6 +419,27 @@ const Input = styled.input`
 
   &::placeholder {
     color: var(--text-muted);
+  }
+`;
+
+const Select = styled.select`
+  padding: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 8px;
+  font-size: 16px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+  }
+
+  option {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
   }
 `;
 
@@ -931,7 +1003,7 @@ const ClearRankingButton = styled.button`
 
 const AdminDashboard: React.FC = () => {
   const { state: authState, logout } = useAuth();
-  const { state, addCosplay, updateCosplay, deleteCosplay, setVisibleProfile, clearRanking} = useApp();
+  const { state, addCosplay, updateCosplay, deleteCosplay, setVisibleProfile, clearRanking, setVotingMode } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<CosplayProfile | null>(null);
 
@@ -940,8 +1012,49 @@ const AdminDashboard: React.FC = () => {
     character: '',
     anime: '',
     image_urls: [''],
-    description: ''
+    description: '',
+    modality: state.currentMode
   });
+
+  // Debug: Verificar ranking e filtro
+  useEffect(() => {
+    console.log('🔍 [AdminDashboard] Modo atual:', state.currentMode);
+    console.log('🔍 [AdminDashboard] Total de perfis no ranking:', state.ranking.length);
+    console.log('🔍 [AdminDashboard] Perfis no ranking COMPLETOS:', 
+      state.ranking.map(p => ({ 
+        name: p.name, 
+        modality: p.modality,
+        final_score: p.final_score,
+        total_votes: p.total_final_votes,
+        matches: p.modality === state.currentMode
+      }))
+    );
+    const filteredRanking = state.ranking.filter(p => p.modality === state.currentMode);
+    console.log('🔍 [AdminDashboard] Perfis FILTRADOS:', 
+      filteredRanking.map(p => ({ 
+        name: p.name, 
+        modality: p.modality,
+        final_score: p.final_score,
+        total_votes: p.total_final_votes
+      }))
+    );
+  }, [state.ranking, state.currentMode]);
+
+  // Filtrar perfis pela modalidade atual
+  const filteredProfiles = state.cosplayProfiles.filter(
+    profile => profile.modality === state.currentMode
+  );
+
+  // Handler para alternar entre modalidades
+  const handleModeChange = async (newMode: 'desfile' | 'presentation') => {
+    try {
+      await setVotingMode(newMode);
+      console.log(`✅ Modo alterado para: ${newMode}`);
+    } catch (error) {
+      console.error('❌ Erro ao alterar modo:', error);
+      alert('Erro ao alterar modo de votação. Tente novamente.');
+    }
+  };
 
   const handleOpenModal = (profile?: CosplayProfile) => {
     if (profile) {
@@ -951,7 +1064,8 @@ const AdminDashboard: React.FC = () => {
         character: profile.character,
         anime: profile.anime,
         image_urls: profile.image_urls.length > 0 ? profile.image_urls : [''],
-        description: profile.description
+        description: profile.description,
+        modality: profile.modality
       });
     } else {
       setEditingProfile(null);
@@ -960,7 +1074,8 @@ const AdminDashboard: React.FC = () => {
         character: '',
         anime: '',
         image_urls: [''],
-        description: ''
+        description: '',
+        modality: state.currentMode // Define modalidade atual como padrão
       });
     }
     setShowModal(true);
@@ -995,11 +1110,13 @@ const AdminDashboard: React.FC = () => {
       updateCosplay(editingProfile.id, {
         ...formData,
         image_urls: image_urls,
+        modality: formData.modality
       });
     } else {
       addCosplay({
         ...formData,
         image_urls: image_urls,
+        modality: formData.modality
       });
     }
 
@@ -1044,6 +1161,23 @@ const AdminDashboard: React.FC = () => {
         <Header>
           <HeaderContent>
             <Title>Painel Administrativo</Title>
+            <ModeSwitch>
+              <ModeSwitchLabel>Modalidade:</ModeSwitchLabel>
+              <ModeSwitchButtons>
+                <ModeSwitchButton
+                  $active={state.currentMode === 'desfile'}
+                  onClick={() => handleModeChange('desfile')}
+                >
+                  Desfile
+                </ModeSwitchButton>
+                <ModeSwitchButton
+                  $active={state.currentMode === 'presentation'}
+                  onClick={() => handleModeChange('presentation')}
+                >
+                  Apresentação
+                </ModeSwitchButton>
+              </ModeSwitchButtons>
+            </ModeSwitch>
             <UserInfo>
               <span>Olá, {authState.user?.name}</span>
               <LogoutButton onClick={handleLogout}>
@@ -1078,7 +1212,7 @@ const AdminDashboard: React.FC = () => {
               </NoneOption>
 
               {/* Cards dos perfis */}
-              {state.cosplayProfiles.map(profile => (
+              {filteredProfiles.map(profile => (
                 <ProfileSelectorCard
                   key={profile.id}
                   $isSelected={state.currentVisibleProfile === profile.id}
@@ -1112,9 +1246,9 @@ const AdminDashboard: React.FC = () => {
               ))}
             </ProfilesContainer>
 
-            {state.cosplayProfiles.length === 0 && (
+            {filteredProfiles.length === 0 && (
               <NoDataMessage>
-                Nenhum perfil cadastrado ainda. Adicione perfis na seção abaixo para começar a votação.
+                Nenhum perfil cadastrado para a modalidade {state.currentMode === 'desfile' ? 'Desfile' : 'Apresentação'}. Adicione perfis na seção abaixo.
               </NoDataMessage>
             )}
           </ProfileSelector>
@@ -1147,7 +1281,9 @@ const AdminDashboard: React.FC = () => {
                         const scores = Object.values(state.votingStatistics.averageScores).filter(s => typeof s === 'number' && !isNaN(s));
                         if (scores.length === 0) return '0.0';
                         const sum = scores.reduce((acc, score) => acc + score, 0);
-                        return (sum / 3).toFixed(1);
+                        // Use the actual number of scores (3 for desfile, 5 for apresentação)
+                        const criteriaCount = scores.length;
+                        return (sum / criteriaCount).toFixed(1);
                       })()
                       : '0.0'
                     }
@@ -1193,13 +1329,17 @@ const AdminDashboard: React.FC = () => {
                               const scores = Object.values(vote.scores).map(s => parseFloat(s as any)).filter(s => !isNaN(s));
                               if (scores.length === 0) return '0.0';
                               const sum = scores.reduce((acc, score) => acc + score, 0);
-                              return (sum / 3).toFixed(1);
+                              // Use the actual number of scores (3 for desfile, 5 for apresentação)
+                              const criteriaCount = scores.length;
+                              return (sum / criteriaCount).toFixed(1);
                             })()}
                           </strong>
                         </VotesTableCell>
                         <VotesTableCell>
                           <DetailedScores>
-                            {Object.values(vote.scores).join(', ')}
+                            {Object.values(vote.scores)
+                              .filter(s => s !== undefined && s !== null && s !== '')
+                              .join(', ')}
                           </DetailedScores>
                         </VotesTableCell>
                         <VotesTableCell>
@@ -1236,7 +1376,7 @@ const AdminDashboard: React.FC = () => {
             <Award size={24} />
             Ranking Final
             <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
-              ({state.ranking.length} perfis)
+              ({state.ranking.filter(p => p.modality === state.currentMode).length} perfis)
             </span>
             {state.ranking.length > 0 && (
               <ClearRankingButton onClick={handleClearRanking}>
@@ -1245,7 +1385,7 @@ const AdminDashboard: React.FC = () => {
               </ClearRankingButton>
             )}
           </SectionTitle>
-          {state.ranking.length > 0 ? (
+          {state.ranking.filter(p => p.modality === state.currentMode).length > 0 ? (
             <TableContainer className="ranking-table">
               <VotesTable>
                 <thead>
@@ -1258,7 +1398,9 @@ const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {state.ranking.map((profile, index) => (
+                  {state.ranking
+                    .filter(profile => profile.modality === state.currentMode)
+                    .map((profile, index) => (
                     <VotesTableRow key={profile.id}>
                       <VotesTableCell>
                         <strong style={{ fontSize: '1.2rem' }}>{index + 1}º</strong>
@@ -1298,7 +1440,7 @@ const AdminDashboard: React.FC = () => {
           </AddButton>
 
           <ProfilesGrid>
-            {state.cosplayProfiles.map(profile => (
+            {filteredProfiles.map(profile => (
               <ProfileCard key={profile.id}>
                 <ProfileImage 
                   src={profile.image_urls[0] || '/placeholder-cosplay.jpg'} 
@@ -1338,10 +1480,10 @@ const AdminDashboard: React.FC = () => {
             ))}
           </ProfilesGrid>
 
-          {state.cosplayProfiles.length === 0 && (
+          {filteredProfiles.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
               <Trophy size={48} style={{ margin: '0 auto 20px', display: 'block' }} />
-              <p>Nenhum perfil cadastrado ainda.</p>
+              <p>Nenhum perfil cadastrado para a modalidade {state.currentMode === 'desfile' ? 'Desfile' : 'Apresentação'}.</p>
               <p>Clique em "Adicionar Novo Perfil" para começar.</p>
             </div>
           )}
@@ -1389,6 +1531,14 @@ const AdminDashboard: React.FC = () => {
                 </div>
               ))}
               <Button type="button" onClick={addImageUrlInput} $variant="secondary">Adicionar mais imagens</Button>
+              <Select
+                value={formData.modality}
+                onChange={(e) => setFormData({...formData, modality: e.target.value as 'desfile' | 'presentation'})}
+                required
+              >
+                <option value="desfile">Modalidade: Desfile (3 critérios)</option>
+                <option value="presentation">Modalidade: Apresentação (5 critérios)</option>
+              </Select>
               <Textarea
                 placeholder="Descrição do cosplay"
                 value={formData.description}

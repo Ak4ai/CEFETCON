@@ -39,6 +39,7 @@ const migrateDatabase = async () => {
         voting_status VARCHAR(20) DEFAULT 'pending' NOT NULL,
         final_score NUMERIC(4, 2),
         total_final_votes INTEGER,
+        modality VARCHAR(20) DEFAULT 'desfile' NOT NULL CHECK (modality IN ('desfile', 'presentation')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -54,6 +55,8 @@ const migrateDatabase = async () => {
         indumentaria INTEGER CHECK (indumentaria >= 1 AND indumentaria <= 10),
         similaridade INTEGER CHECK (similaridade >= 1 AND similaridade <= 10),
         qualidade INTEGER CHECK (qualidade >= 1 AND qualidade <= 10),
+        interpretacao INTEGER CHECK (interpretacao >= 1 AND interpretacao <= 10),
+        performance INTEGER CHECK (performance >= 1 AND performance <= 10),
         submitted BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -67,6 +70,7 @@ const migrateDatabase = async () => {
       CREATE TABLE IF NOT EXISTS voting_control (
         id SERIAL PRIMARY KEY,
         current_visible_profile_id INTEGER REFERENCES cosplay_profiles(id),
+        current_mode VARCHAR(20) DEFAULT 'desfile' NOT NULL CHECK (current_mode IN ('desfile', 'presentation')),
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -99,6 +103,12 @@ const migrateDatabase = async () => {
       await client.query('ALTER TABLE cosplay_profiles DROP COLUMN image_url');
       console.log('   ✅ Migrado "cosplay_profiles": Coluna "image_url" convertida para "image_urls".');
     }
+    
+    // Adicionar coluna modality se não existir
+    if (!profilesColumns.rows.find(c => c.column_name === 'modality')) {
+      await client.query("ALTER TABLE cosplay_profiles ADD COLUMN modality VARCHAR(20) DEFAULT 'desfile' NOT NULL CHECK (modality IN ('desfile', 'presentation'))");
+      console.log('   ✅ Migrado "cosplay_profiles": Adicionada coluna "modality".');
+    }
 
     // c) Migrar tabela votes: critérios antigos -> novos
     const votesColumns = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='votes'");
@@ -122,13 +132,30 @@ const migrateDatabase = async () => {
         `);
         console.log('   ✅ Migrado "votes": Novas colunas de critérios adicionadas.');
     }
+    
+    // Adicionar colunas de apresentação se não existirem
+    if (!votesColumns.rows.find(c => c.column_name === 'interpretacao')) {
+        await client.query(`
+            ALTER TABLE votes
+            ADD COLUMN interpretacao INTEGER CHECK (interpretacao >= 1 AND interpretacao <= 10),
+            ADD COLUMN performance INTEGER CHECK (performance >= 1 AND performance <= 10);
+        `);
+        console.log('   ✅ Migrado "votes": Colunas de apresentação adicionadas.');
+    }
 
     // 3. Dados Iniciais
     console.log('3. Inserindo dados iniciais se necessário...');
     const votingControlCount = await client.query('SELECT COUNT(*) FROM voting_control');
     if (votingControlCount.rows[0].count === '0') {
-      await client.query('INSERT INTO voting_control (current_visible_profile_id) VALUES (NULL)');
+      await client.query("INSERT INTO voting_control (current_visible_profile_id, current_mode) VALUES (NULL, 'desfile')");
       console.log('   ✅ Dados iniciais inseridos em "voting_control".');
+    }
+    
+    // Adicionar coluna current_mode se não existir
+    const votingControlColumns = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='voting_control'");
+    if (!votingControlColumns.rows.find(c => c.column_name === 'current_mode')) {
+      await client.query("ALTER TABLE voting_control ADD COLUMN current_mode VARCHAR(20) DEFAULT 'desfile' NOT NULL CHECK (current_mode IN ('desfile', 'presentation'))");
+      console.log('   ✅ Migrado "voting_control": Adicionada coluna "current_mode".');
     }
 
     await client.query('COMMIT');

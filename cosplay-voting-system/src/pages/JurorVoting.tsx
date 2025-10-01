@@ -562,6 +562,14 @@ const criteriaLabels = {
   qualidade: {
     title: 'QUALIDADE',
     description: 'Detalhes da vestimenta e desenvoltura do cosplayer ao desfilar.'
+  },
+  interpretacao: {
+    title: 'INTERPRETAÇÃO',
+    description: 'Capacidade de incorporar e transmitir a essência do personagem.'
+  },
+  performance: {
+    title: 'PERFORMANCE',
+    description: 'Qualidade da apresentação cênica, expressão corporal e carisma.'
   }
 };
 
@@ -592,7 +600,9 @@ const JurorVoting: React.FC = () => {
   const [scores, setScores] = useState<Scores>({
     indumentaria: 0,
     similaridade: 0,
-    qualidade: 0
+    qualidade: 0,
+    interpretacao: 0,
+    performance: 0
   });
   
   const [isEditing, setIsEditing] = useState(false);
@@ -676,7 +686,9 @@ const JurorVoting: React.FC = () => {
         setScores({
           indumentaria: 0,
           similaridade: 0,
-          qualidade: 0
+          qualidade: 0,
+          interpretacao: 0,
+          performance: 0
         });
         setHasVoted(false);
         setIsEditing(false);
@@ -724,7 +736,30 @@ const JurorVoting: React.FC = () => {
   };
 
   const isValidScore = (score: number) => !isNaN(score) && score >= 1 && score <= 10;
-  const allScoresValid = Object.values(scores).every(isValidScore);
+  
+  // Validar apenas os critérios aplicáveis à modalidade do perfil
+  const allScoresValid = (() => {
+    if (!currentProfile) return false;
+    
+    // Para desfile: validar apenas 3 critérios
+    if (currentProfile.modality === 'desfile') {
+      return (
+        isValidScore(scores.indumentaria) &&
+        isValidScore(scores.similaridade) &&
+        isValidScore(scores.qualidade)
+      );
+    }
+    
+    // Para apresentação: validar todos os 5 critérios
+    const presentationScores = scores as any;
+    return (
+      isValidScore(scores.indumentaria) &&
+      isValidScore(scores.similaridade) &&
+      isValidScore(scores.qualidade) &&
+      isValidScore(presentationScores.interpretacao || 0) &&
+      isValidScore(presentationScores.performance || 0)
+    );
+  })();
 
   const toggleLayout = () => {
     setIsThreeColumn(!isThreeColumn);
@@ -837,7 +872,16 @@ const JurorVoting: React.FC = () => {
                 <VotingTitle>Avaliação por Critérios</VotingTitle>
                 
                 <CriteriaGrid>
-                  {Object.entries(criteriaLabels).map(([key, info]) => (
+                  {Object.entries(criteriaLabels)
+                    .filter(([key]) => {
+                      // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                      if (currentProfile.modality === 'desfile') {
+                        return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                      }
+                      // Para modalidade apresentação, mostrar todos os 5 critérios
+                      return true;
+                    })
+                    .map(([key, info]) => (
                     <CriteriaCard key={key}>
                       <CriteriaInfo>
                         <CriteriaLabel>{info.title}</CriteriaLabel>
@@ -923,7 +967,16 @@ const JurorVoting: React.FC = () => {
                 <VotingTitle>Avaliação por Critérios</VotingTitle>
                 
                 <CriteriaGrid>
-                  {Object.entries(criteriaLabels).map(([key, info]) => (
+                  {Object.entries(criteriaLabels)
+                    .filter(([key]) => {
+                      // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                      if (currentProfile.modality === 'desfile') {
+                        return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                      }
+                      // Para modalidade apresentação, mostrar todos os 5 critérios
+                      return true;
+                    })
+                    .map(([key, info]) => (
                     <CriteriaCard key={key}>
                       <CriteriaInfo>
                         <CriteriaLabel>{info.title}</CriteriaLabel>
