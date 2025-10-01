@@ -99,13 +99,32 @@ router.put('/set-visible/:profileId', authenticateToken, requireAdmin, async (re
     // 2. Se existia um perfil visível, calcular e salvar seus resultados finais
     if (oldVisibleProfileId) {
       console.log(`🔄 Fechando votação para o perfil ID: ${oldVisibleProfileId}`);
-      const finalStatsResult = await query(`
-        SELECT 
-          COUNT(*) FILTER (WHERE submitted = true) as total_votes,
-          AVG((indumentaria + similaridade + qualidade) / 3.0) as overall_average
-        FROM votes 
-        WHERE cosplay_id = $1 AND submitted = true
-      `, [oldVisibleProfileId]);
+      
+      // Verificar modalidade do perfil para calcular corretamente
+      const modalityResult = await query('SELECT modality FROM cosplay_profiles WHERE id = $1', [oldVisibleProfileId]);
+      const modality = modalityResult.rows[0]?.modality || 'desfile';
+      
+      let finalStatsResult;
+      if (modality === 'presentation') {
+        // Para apresentação, calcular média com 5 critérios
+        finalStatsResult = await query(`
+          SELECT 
+            COUNT(*) FILTER (WHERE submitted = true) as total_votes,
+            AVG((indumentaria + similaridade + qualidade + 
+                 COALESCE(interpretacao, 0) + COALESCE(performance, 0)) / 5.0) as overall_average
+          FROM votes 
+          WHERE cosplay_id = $1 AND submitted = true
+        `, [oldVisibleProfileId]);
+      } else {
+        // Para desfile, calcular média com 3 critérios (padrão)
+        finalStatsResult = await query(`
+          SELECT 
+            COUNT(*) FILTER (WHERE submitted = true) as total_votes,
+            AVG((indumentaria + similaridade + qualidade) / 3.0) as overall_average
+          FROM votes 
+          WHERE cosplay_id = $1 AND submitted = true
+        `, [oldVisibleProfileId]);
+      }
 
       const finalStats = finalStatsResult.rows[0];
       const finalScore = parseFloat(finalStats.overall_average || 0);
@@ -216,16 +235,40 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
     // Estatísticas de votação do perfil atual
     let currentProfileStats = null;
     if (currentProfile && currentProfile.id) {
-      const statsResult = await query(`
-        SELECT 
-          COUNT(*) FILTER (WHERE submitted = true) as total_votes,
-          COUNT(DISTINCT juror_id) as unique_jurors,
-          AVG(indumentaria) as avg_indumentaria,
-          AVG(similaridade) as avg_similaridade,
-          AVG(qualidade) as avg_qualidade
-        FROM votes 
-        WHERE cosplay_id = $1
-      `, [currentProfile.id]);
+      // Verificar modalidade do perfil para incluir critérios corretos
+      const modalityResult = await query('SELECT modality FROM cosplay_profiles WHERE id = $1', [currentProfile.id]);
+      const modality = modalityResult.rows[0]?.modality || 'desfile';
+
+      let statsQuery;
+      if (modality === 'presentation') {
+        // Para apresentação: incluir 5 critérios
+        statsQuery = `
+          SELECT 
+            COUNT(*) FILTER (WHERE submitted = true) as total_votes,
+            COUNT(DISTINCT juror_id) as unique_jurors,
+            AVG(indumentaria) as avg_indumentaria,
+            AVG(similaridade) as avg_similaridade,
+            AVG(qualidade) as avg_qualidade,
+            AVG(interpretacao) as avg_interpretacao,
+            AVG(performance) as avg_performance
+          FROM votes 
+          WHERE cosplay_id = $1
+        `;
+      } else {
+        // Para desfile: apenas 3 critérios
+        statsQuery = `
+          SELECT 
+            COUNT(*) FILTER (WHERE submitted = true) as total_votes,
+            COUNT(DISTINCT juror_id) as unique_jurors,
+            AVG(indumentaria) as avg_indumentaria,
+            AVG(similaridade) as avg_similaridade,
+            AVG(qualidade) as avg_qualidade
+          FROM votes 
+          WHERE cosplay_id = $1
+        `;
+      }
+
+      const statsResult = await query(statsQuery, [currentProfile.id]);
 
       const stats = statsResult.rows[0];
       currentProfileStats = {
@@ -237,6 +280,12 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
           qualidade: parseFloat(stats.avg_qualidade || 0).toFixed(2)
         }
       };
+
+      // Adicionar interpretacao e performance se for modalidade apresentação
+      if (modality === 'presentation') {
+        currentProfileStats.averages.interpretacao = parseFloat(stats.avg_interpretacao || 0).toFixed(2);
+        currentProfileStats.averages.performance = parseFloat(stats.avg_performance || 0).toFixed(2);
+      }
     }
 
     // Total de jurados cadastrados
@@ -355,6 +404,69 @@ router.post('/close', authenticateToken, requireAdmin, async (req, res) => {
     console.log(`✅ Votação fechada por ${req.user.name}: ${currentProfile.name} - ${currentProfile.character}`);
   } catch (error) {
     console.error('Erro ao fechar votação:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// PUT /api/voting/set-mode - Alterar modalidade de votação (apenas admin)
+router.put('/set-mode', [
+  body('mode').isIn(['desfile', 'presentation']).withMessage('Modalidade deve ser desfile ou presentation')
+], authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        details: errors.array()
+      });
+    }
+
+    const { mode } = req.body;
+
+    // Atualizar o modo no voting_control
+    await query(`
+      UPDATE voting_control
+      SET current_mode = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = (SELECT id FROM voting_control ORDER BY id DESC LIMIT 1)
+    `, [mode]);
+
+    // Limpar perfil visível ao trocar de modo
+    await query(`
+      UPDATE voting_control
+      SET current_visible_profile_id = NULL
+      WHERE id = (SELECT id FROM voting_control ORDER BY id DESC LIMIT 1)
+    `);
+
+    res.json({
+      message: `Modalidade alterada para ${mode === 'desfile' ? 'Desfile' : 'Apresentação'}`,
+      mode
+    });
+
+    console.log(`✅ Modalidade alterada para ${mode} por ${req.user.name}`);
+  } catch (error) {
+    console.error('Erro ao alterar modalidade:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// GET /api/voting/mode - Obter modalidade atual
+router.get('/mode', authenticateToken, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT current_mode FROM voting_control ORDER BY id DESC LIMIT 1
+    `);
+
+    const mode = result.rows[0]?.current_mode || 'desfile';
+
+    res.json({ mode });
+  } catch (error) {
+    console.error('Erro ao obter modalidade:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       code: 'INTERNAL_ERROR'

@@ -15,7 +15,8 @@ type AppAction =
   | { type: 'UPDATE_VOTE'; payload: Vote }
   | { type: 'SET_VOTING_STATISTICS'; payload: any | null }
   | { type: 'SET_RANKING'; payload: CosplayProfile[] }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_MODE'; payload: 'desfile' | 'presentation' };
 
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
@@ -87,6 +88,12 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             indumentaria: parseFloat(action.payload.current_profile_stats.averages.indumentaria || '0'),
             similaridade: parseFloat(action.payload.current_profile_stats.averages.similaridade || '0'),
             qualidade: parseFloat(action.payload.current_profile_stats.averages.qualidade || '0'),
+            ...(action.payload.current_profile_stats.averages.interpretacao !== undefined && {
+              interpretacao: parseFloat(action.payload.current_profile_stats.averages.interpretacao || '0')
+            }),
+            ...(action.payload.current_profile_stats.averages.performance !== undefined && {
+              performance: parseFloat(action.payload.current_profile_stats.averages.performance || '0')
+            }),
           } : null,
           votes: (action.payload.current_profile_votes || []).map((v: RawVote) => ({
             id: v.id,
@@ -97,6 +104,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
               indumentaria: v.indumentaria,
               similaridade: v.similaridade,
               qualidade: v.qualidade,
+              ...(v.interpretacao !== undefined && { interpretacao: v.interpretacao }),
+              ...(v.performance !== undefined && { performance: v.performance }),
             },
             submitted: v.submitted,
             updatedAt: v.updated_at,
@@ -105,9 +114,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       };
     case 'SET_RANKING':
       console.log('🔄 Reducer SET_RANKING chamado com payload:', action.payload);
+      console.log('🔍 Modalidades dos perfis:', action.payload.map(p => ({ name: p.name, modality: p.modality })));
       return {
         ...state,
         ranking: action.payload
+      };
+    case 'SET_MODE':
+      return {
+        ...state,
+        currentMode: action.payload
       };
     default:
       return state;
@@ -119,6 +134,7 @@ const initialState: AppState = {
   jurors: [],
   votes: [],
   currentVisibleProfile: null,
+  currentMode: 'desfile',
   votingStatistics: null,
   ranking: [],
   loading: false
@@ -146,6 +162,9 @@ interface AppContextType {
   finalizeProfileLocally: (profileId: string) => Promise<void>;
   syncWithDatabase: () => Promise<void>;
   clearRanking: () => Promise<void>;
+  // Mode functions
+  setVotingMode: (mode: 'desfile' | 'presentation') => Promise<void>;
+  loadCurrentMode: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -168,6 +187,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         const profiles = await profileService.getAllProfiles();
         dispatch({ type: 'SET_PROFILES', payload: profiles });
+        
+        // Carregar modalidade atual
+        try {
+          const mode = await votingService.getVotingMode();
+          dispatch({ type: 'SET_MODE', payload: mode });
+        } catch (error) {
+          console.error('Erro ao carregar modalidade:', error);
+        }
         
         // Carregar o perfil visível atual
         try {
@@ -690,6 +717,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const setVotingMode = async (mode: 'desfile' | 'presentation') => {
+    try {
+      await votingService.setVotingMode(mode);
+      dispatch({ type: 'SET_MODE', payload: mode });
+      console.log(`✅ Modalidade alterada para ${mode}`);
+    } catch (error) {
+      console.error('❌ Erro ao alterar modalidade:', error);
+      throw error;
+    }
+  };
+
+  const loadCurrentMode = async () => {
+    try {
+      const mode = await votingService.getVotingMode();
+      dispatch({ type: 'SET_MODE', payload: mode });
+    } catch (error) {
+      console.error('❌ Erro ao carregar modalidade:', error);
+      // Usar modo padrão em caso de erro
+      dispatch({ type: 'SET_MODE', payload: 'desfile' });
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       state,
@@ -708,7 +757,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       refreshAllData,
       finalizeProfileLocally,
       syncWithDatabase,
-      clearRanking
+      clearRanking,
+      setVotingMode,
+      loadCurrentMode
     }}>
       {children}
     </AppContext.Provider>

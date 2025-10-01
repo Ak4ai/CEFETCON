@@ -122,6 +122,7 @@ export const profileService = {
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
       }));
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfis');
@@ -143,6 +144,7 @@ export const profileService = {
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
       }));
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfis públicos');
@@ -164,6 +166,7 @@ export const profileService = {
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfil');
@@ -176,6 +179,7 @@ export const profileService = {
     anime: string;
     image_urls: string[];
     description: string;
+    modality?: 'desfile' | 'presentation';
   }): Promise<CosplayProfile> {
     try {
       const response = await api.post('/profiles', profileData);
@@ -191,6 +195,7 @@ export const profileService = {
         voting_status: 'pending',
         final_score: undefined,
         total_final_votes: undefined,
+        modality: profile.modality || 'desfile',
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao criar perfil');
@@ -203,6 +208,7 @@ export const profileService = {
     anime: string;
     image_urls: string[];
     description: string;
+    modality: 'desfile' | 'presentation';
   }>): Promise<CosplayProfile> {
     try {
       const response = await api.put(`/profiles/${id}`, profileData);
@@ -218,6 +224,7 @@ export const profileService = {
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao atualizar perfil');
@@ -274,6 +281,7 @@ export const profileService = {
         anime: profile.anime,
         image_urls: profile.image_urls || [],
         description: profile.description || '',
+        modality: profile.modality || 'desfile',
         isVisible: false,
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
@@ -326,13 +334,24 @@ export const voteService = {
 
   async submitVote(cosplayId: string, scores: Scores, submitted: boolean = true): Promise<Vote> {
     try {
-      const response = await api.post('/votes', {
+      const voteData: any = {
         cosplay_id: parseInt(cosplayId),
         indumentaria: scores.indumentaria,
         similaridade: scores.similaridade,
         qualidade: scores.qualidade,
         submitted
-      });
+      };
+
+      // Incluir interpretacao e performance se existirem (modalidade apresentação)
+      const presentationScores = scores as any;
+      if (presentationScores.interpretacao !== undefined && presentationScores.interpretacao > 0) {
+        voteData.interpretacao = presentationScores.interpretacao;
+      }
+      if (presentationScores.performance !== undefined && presentationScores.performance > 0) {
+        voteData.performance = presentationScores.performance;
+      }
+
+      const response = await api.post('/votes', voteData);
       
       const vote = response.data.vote;
       return {
@@ -342,6 +361,8 @@ export const voteService = {
           indumentaria: vote.indumentaria,
           similaridade: vote.similaridade,
           qualidade: vote.qualidade,
+          interpretacao: vote.interpretacao,
+          performance: vote.performance
         },
         submitted: vote.submitted
       };
@@ -420,6 +441,7 @@ export const votingService = {
         voting_status: profile.voting_status || 'active',
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfil atual');
@@ -491,6 +513,23 @@ export const votingService = {
       // Se não existir endpoint específico, simula a finalização
       console.log('📊 Finalizando perfil via status check');
       throw new Error(error.response?.data?.error || 'Erro ao finalizar perfil');
+    }
+  },
+
+  async setVotingMode(mode: 'desfile' | 'presentation'): Promise<void> {
+    try {
+      await api.put('/voting/set-mode', { mode });
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Erro ao alterar modalidade');
+    }
+  },
+
+  async getVotingMode(): Promise<'desfile' | 'presentation'> {
+    try {
+      const response = await api.get('/voting/mode');
+      return response.data.mode;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Erro ao obter modalidade');
     }
   }
 };

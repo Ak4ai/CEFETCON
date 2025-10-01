@@ -9,13 +9,24 @@ export interface CosplayProfile {
   voting_status: 'pending' | 'active' | 'completed';
   final_score?: number;
   total_final_votes?: number;
+  modality: 'desfile' | 'presentation';
 }
 
-export interface Scores {
+export interface DesfileScores {
   indumentaria: number;
   similaridade: number;
   qualidade: number;
 }
+
+export interface PresentationScores {
+  indumentaria: number;
+  similaridade: number;
+  qualidade: number;
+  interpretacao: number;
+  performance: number;
+}
+
+export type Scores = DesfileScores | PresentationScores;
 
 export interface Vote {
   jurorId: string;
@@ -59,11 +70,14 @@ export interface VotingStatistics {
   pendingJurors: number; // Jurados que ainda não votaram no perfil atual
 }
 
+export type VotingMode = 'desfile' | 'presentation';
+
 export interface AppState {
   cosplayProfiles: CosplayProfile[];
   jurors: Juror[];
   votes: Vote[];
   currentVisibleProfile: string | null;
+  currentMode: VotingMode;
   votingStatistics: VotingStatistics | null;
   ranking: CosplayProfile[]; // Novo estado para o ranking
   loading: boolean;
@@ -78,6 +92,8 @@ export interface RawVote {
   indumentaria: number;
   similaridade: number;
   qualidade: number;
+  interpretacao?: number;
+  performance?: number;
   submitted: boolean;
   updated_at: string;
 }
