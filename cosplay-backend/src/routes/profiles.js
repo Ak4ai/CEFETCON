@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { query } = require('../config/database');
+const { query, pool } = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -474,30 +474,48 @@ router.put('/:id/finalize', authenticateToken, requireAdmin, async (req, res) =>
 
 // DELETE /api/profiles/ranking/clear - Limpar dados do ranking final (apenas admin)
 router.delete('/ranking/clear', authenticateToken, requireAdmin, async (req, res) => {
+  if (!pool) return res.status(500).json({ error: 'Database pool not available' });
+  const client = await pool.connect();
   try {
-    console.log('🗑️ Limpando dados do ranking final...');
+    await client.query('BEGIN');
+    console.log('🗑️  Iniciando limpeza completa dos dados de votação...');
     
-    // Resetar os scores finais de todos os perfis
-    await query(`
+    // 1. Apagar todos os votos
+    console.log('   - Apagando todos os registros da tabela `votes`...');
+    await client.query('DELETE FROM votes');
+    console.log('   ✅ Registros de votos apagados.');
+
+    // 2. Resetar os scores e status de todos os perfis
+    console.log('   - Resetando `final_score`, `total_final_votes` e `voting_status` de todos os perfis...');
+    await client.query(`
       UPDATE cosplay_profiles 
       SET 
         final_score = NULL,
         total_final_votes = NULL,
         voting_status = 'pending'
-      WHERE voting_status = 'completed'
     `);
+    console.log('   ✅ Perfis resetados para o estado inicial.');
     
-    console.log('✅ Ranking limpo com sucesso!');
+    // 3. Resetar o perfil visível no controle de votação
+    console.log('   - Limpando perfil visível em `voting_control`...');
+    await client.query('UPDATE voting_control SET current_visible_profile_id = NULL');
+    console.log('   ✅ Perfil visível resetado.');
+
+    await client.query('COMMIT');
+    console.log('🎉 Limpeza completa de dados de votação concluída com sucesso!');
     res.json({
       success: true,
-      message: 'Ranking limpo com sucesso'
+      message: 'Todos os dados de votação foram limpos com sucesso!'
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ Erro ao limpar ranking:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       code: 'INTERNAL_ERROR'
     });
+  } finally {
+    client.release();
   }
 });
 

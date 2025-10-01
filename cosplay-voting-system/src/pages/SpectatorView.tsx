@@ -154,11 +154,11 @@ const CardHeader = styled.div`
   flex-shrink: 0;
 `;
 
-const ProfileCard = styled.div`
+const CardContainer = styled.div`
   background: var(--bg-secondary);
   border: 1px solid rgba(139, 92, 246, 0.3);
   border-radius: 25px;
-  padding: 40px;
+  padding: 30px 40px;
   margin: 40px;
   width: 100%;
   height: 90vh;
@@ -172,7 +172,7 @@ const ProfileCard = styled.div`
   transition: all 0.3s ease;
 
   @media (max-width: 768px) {
-    padding: 20px;
+    padding: 25px 20px;
     height: auto;
     margin: 0px;
   }
@@ -180,7 +180,8 @@ const ProfileCard = styled.div`
 
 const ProfileInfo = styled.div`
   margin-bottom: 30px;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Não deixa encolher */
+  width: 100%;
 `;
 
 const ProfileName = styled.h2`
@@ -215,25 +216,17 @@ const LastUpdate = styled.p`
 
 const ScoresGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
+  grid-template-columns: repeat(3, 1fr); /* Ajustado para 3 colunas */
+  gap: 30px; /* Aumentado o espaçamento */
+  margin-bottom: 40px; /* Aumentado a margem */
   flex: 1;
   min-height: 0;
   
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-  }
-  
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  
-  @media (max-width: 480px) {
+  /* Em telas menores, uma única coluna para melhor legibilidade */
+  @media (max-width: 1024px) {
     grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
   }
 `;
 
@@ -241,16 +234,18 @@ const ScoreCard = styled.div`
   background: rgba(139, 92, 246, 0.15);
   border-radius: 15px;
   padding: 20px 15px;
-  text-align: center;
   border: 2px solid rgba(139, 92, 246, 0.3);
   transition: all 0.3s ease;
   animation: ${fadeIn} 0.6s ease-out;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center; /* Centraliza o conteúdo */
   
   @media (max-width: 480px) {
     padding: 15px;
+    flex-direction: row; /* Lado a lado em telas muito pequenas */
+    justify-content: space-between;
   }
 
   &:hover {
@@ -262,12 +257,16 @@ const ScoreCard = styled.div`
 `;
 
 const ScoreTitle = styled.h4`
-  color: #e5e7eb;
-  font-size: clamp(0.7rem, 1.2vw, 1rem);
+  color: #d1d5db; /* Cor um pouco mais clara */
+  font-size: clamp(0.8rem, 1.5vw, 1.1rem); /* Um pouco maior */
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 600;
+
+  @media (max-width: 480px) {
+    margin-bottom: 0;
+  }
 `;
 
 const ScoreValue = styled.div`
@@ -277,11 +276,18 @@ const ScoreValue = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  @media (max-width: 480px) {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
 `;
 
 const ScoreMax = styled.div`
   color: #6b7280;
   font-size: clamp(0.6rem, 1vw, 0.8rem);
+  margin-left: 4px; /* Pequeno espaço */
 `;
 
 const FinalScoreContainer = styled.div`
@@ -570,7 +576,7 @@ const SpectatorView: React.FC = () => {
 
   return (
     <Container>
-      <ProfileCard>
+      <CardContainer>
         <CardHeader>
           <BackButton onClick={() => navigate('/login')}>Voltar</BackButton>
         </CardHeader>
@@ -620,13 +626,13 @@ const SpectatorView: React.FC = () => {
           <FinalScoreValue>
             <CounterRoll 
               value={averages ? averages.finalAverage : 0}
-              decimals={1}
+              decimals={2} /* Aumentar precisão da nota final */
               fontSize="clamp(2.5rem, 6vw, 4.5rem)"
             />
           </FinalScoreValue>
           <FinalScoreMax>/ 10.0</FinalScoreMax>
         </FinalScoreContainer>
-      </ProfileCard>
+      </CardContainer>
     </Container>
   );
 };
