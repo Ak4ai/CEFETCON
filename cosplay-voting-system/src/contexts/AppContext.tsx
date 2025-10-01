@@ -382,7 +382,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         character: cosplayData.character,
         anime: cosplayData.anime,
         image_urls: cosplayData.image_urls,
-        description: cosplayData.description
+        description: cosplayData.description,
+        modality: cosplayData.modality
       });
       dispatch({ type: 'ADD_COSPLAY', payload: newCosplay });
     } catch (error) {
