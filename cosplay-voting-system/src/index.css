@@ -1,0 +1,86 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Paleta Noturna Pastel */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #201b3d;
+  --bg-tertiary: #0f172a8f;
+  --surface: #1e293b;
+  --surface-hover: #334155;
+  
+  /* Cores Pastel */
+  --accent-purple: #a78bfa;
+  --accent-blue: #ccbbfd;
+  --accent-green: #6ee7b7;
+  --accent-teal: #5eead4;
+  --accent-pink: #f472b6;
+  --accent-orange: #fb923c;
+  --accent-yellow: #fbbf24;
+  
+  /* Textos */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  
+  /* Estados */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: var(--accent-blue);
+  text-decoration: inherit;
+}
+a:hover {
+  color: var(--accent-purple);
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+button:hover {
+  border-color: var(--accent-purple);
+  background-color: var(--surface-hover);
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Tema noturno forçado - removemos o modo claro */

@@ -1,0 +1,12 @@
+version: 2
+authtoken: 33GzP6MvzRtQnbmIQI1xLEx4hHa_Z7jiJ66L5i3USvxJwPxe
+region: sa
+tunnels:
+  backend:
+    addr: 3001
+    proto: http
+    host_header: localhost:3001
+  frontend:
+    addr: 5174
+    proto: http
+    host_header: localhost:5174
