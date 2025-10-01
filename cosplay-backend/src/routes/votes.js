@@ -63,11 +63,11 @@ router.get('/profile/:profileId', authenticateToken, requireAdmin, async (req, r
 // POST /api/votes - Criar ou atualizar voto
 router.post('/', [
   body('cosplay_id').isInt({ min: 1 }).withMessage('ID do cosplay inválido'),
-  body('indumentaria').isInt({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
-  body('similaridade').isInt({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
-  body('qualidade').isInt({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
-  body('interpretacao').optional().isInt({ min: 1, max: 10 }).withMessage('Nota de interpretação deve ser entre 1 e 10'),
-  body('performance').optional().isInt({ min: 1, max: 10 }).withMessage('Nota de performance deve ser entre 1 e 10'),
+  body('indumentaria').isFloat({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
+  body('similaridade').isFloat({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
+  body('qualidade').isFloat({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
+  body('interpretacao').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de interpretação deve ser entre 1 e 10'),
+  body('performance').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de performance deve ser entre 1 e 10'),
   body('submitted').isBoolean().withMessage('Status de submissão deve ser boolean')
 ], authenticateToken, requireJuror, async (req, res) => {
   try {

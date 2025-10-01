@@ -133,19 +133,27 @@ export const profileService = {
     try {
       // Este endpoint não requer autenticação
       const response = await api.get('/profiles/public');
-      return response.data.profiles.map((profile: any) => ({
-        id: profile.id.toString(),
-        name: profile.name,
-        character: profile.character,
-        anime: profile.anime,
-        image_urls: profile.image_urls || [],
-        description: profile.description || '',
-        isVisible: false, // Será definido pelo contexto
-        voting_status: profile.voting_status,
-        final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
-        total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
-        modality: profile.modality || 'desfile',
-      }));
+      console.log('🔍 DEBUG api.ts - Perfis recebidos do backend:', response.data.profiles);
+      return response.data.profiles.map((profile: any) => {
+        console.log(`🔍 DEBUG api.ts - Mapeando perfil ${profile.name}:`, {
+          id: profile.id,
+          modality_backend: profile.modality,
+          modality_final: profile.modality || 'desfile'
+        });
+        return {
+          id: profile.id.toString(),
+          name: profile.name,
+          character: profile.character,
+          anime: profile.anime,
+          image_urls: profile.image_urls || [],
+          description: profile.description || '',
+          isVisible: false, // Será definido pelo contexto
+          voting_status: profile.voting_status,
+          final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
+          total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+          modality: profile.modality || 'desfile',
+        };
+      });
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfis públicos');
     }

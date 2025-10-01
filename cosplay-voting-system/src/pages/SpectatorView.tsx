@@ -216,20 +216,22 @@ const LastUpdate = styled.p`
   font-style: italic;
 `;
 
+const ScoresWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* Ocupa o espaço vertical restante no CardContainer */
+  min-height: 0; /* Garante que o flexbox se comporte bem dentro de um container com altura definida */
+  gap: clamp(15px, 2vw, 25px); /* Espaço entre a grade e a nota final */
+  justify-content: center;
+`;
+
 const ScoresGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); /* Ajustado para 3 colunas */
-  gap: 30px; /* Aumentado o espaçamento */
-  margin-bottom: 40px; /* Aumentado a margem */
-  flex: 1;
-  min-height: 0;
-  
-  /* Em telas menores, uma única coluna para melhor legibilidade */
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-    gap: 20px;
-    margin-bottom: 30px;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(15px, 2vw, 25px);
+  width: 100%;
+  height: 60%;
+  align-items: stretch; /* Garante que os itens se estiquem verticalmente */
 `;
 
 const ScoreCard = styled.div`
@@ -243,11 +245,13 @@ const ScoreCard = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: center; /* Centraliza o conteúdo */
+  flex: 1 1 140px; /* flex-grow, flex-shrink, flex-basis */
   
   @media (max-width: 480px) {
     padding: 15px;
     flex-direction: row; /* Lado a lado em telas muito pequenas */
     justify-content: space-between;
+    flex-basis: 100%; /* Ocupa a largura total */
   }
 
   &:hover {
@@ -294,8 +298,12 @@ const ScoreMax = styled.div`
 
 const FinalScoreContainer = styled.div`
   background: #7c3aed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   border-radius: 20px;
-  padding: 30px;
+  padding: 20px;
   text-align: center;
   color: white;
   position: relative;
@@ -303,6 +311,7 @@ const FinalScoreContainer = styled.div`
   animation: ${fadeIn} 1s ease-out 0.6s both;
   flex-shrink: 0;
   border: 2px solid rgba(139, 92, 246, 0.5);
+  height: 50%;
   box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3);
 
   @media (max-width: 768px) {
@@ -331,7 +340,7 @@ const FinalScoreTitle = styled.h3`
 `;
 
 const FinalScoreValue = styled.div`
-  font-weight: bold;
+  font-weight: 900;
   margin-bottom: 10px;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
   position: relative;
@@ -609,42 +618,44 @@ const SpectatorView: React.FC = () => {
           </ProfileInfoContainer>
         </ProfileInfo>
 
-        <ScoresGrid>
-          {Object.entries(categoryLabels)
-            .filter(([key]) => {
-              // Para modalidade desfile, mostrar apenas os 3 critérios básicos
-              if (currentProfile?.modality === 'desfile') {
-                return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
-              }
-              // Para modalidade apresentação, mostrar todos os 5 critérios
-              return true;
-            })
-            .map(([key, label]) => (
-            <ScoreCard key={key}>
-              <ScoreTitle>{label}</ScoreTitle>
-              <ScoreValue>
-                <CounterRoll 
-                  value={averages ? (averages as any)[key] ?? 0 : 0}
-                  decimals={1}
-                  fontSize="clamp(1.5rem, 3vw, 2.5rem)"
-                />
-              </ScoreValue>
-              <ScoreMax>/ 10.0</ScoreMax>
-            </ScoreCard>
-          ))}
-        </ScoresGrid>
+        <ScoresWrapper>
+          <ScoresGrid>
+            {Object.entries(categoryLabels)
+              .filter(([key]) => {
+                // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                if (currentProfile?.modality === 'desfile') {
+                  return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                }
+                // Para modalidade apresentação, mostrar todos os 5 critérios
+                return true;
+              })
+              .map(([key, label]) => (
+              <ScoreCard key={key}>
+                <ScoreTitle>{label}</ScoreTitle>
+                <ScoreValue>
+                  <CounterRoll 
+                    value={averages ? (averages as any)[key] ?? 0 : 0}
+                    decimals={1}
+                    fontSize="clamp(1.5rem, 3vw, 2.5rem)"
+                  />
+                </ScoreValue>
+                <ScoreMax>/ 10.0</ScoreMax>
+              </ScoreCard>
+            ))}
+          </ScoresGrid>
 
-        <FinalScoreContainer>
-          <FinalScoreTitle>Nota Final</FinalScoreTitle>
-          <FinalScoreValue>
-            <CounterRoll 
-              value={averages ? averages.finalAverage : 0}
-              decimals={2} /* Aumentar precisão da nota final */
-              fontSize="clamp(2.5rem, 6vw, 4.5rem)"
-            />
-          </FinalScoreValue>
-          <FinalScoreMax>/ 10.0</FinalScoreMax>
-        </FinalScoreContainer>
+          <FinalScoreContainer>
+            <FinalScoreTitle>Nota Final</FinalScoreTitle>
+            <FinalScoreValue>
+              <CounterRoll 
+                value={averages ? averages.finalAverage : 0}
+                decimals={2} /* Aumentar precisão da nota final */
+                fontSize="clamp(3.5rem, 8vw, 5.5rem)"
+              />
+            </FinalScoreValue>
+            <FinalScoreMax>/ 10.0</FinalScoreMax>
+          </FinalScoreContainer>
+        </ScoresWrapper>
       </CardContainer>
     </Container>
   );

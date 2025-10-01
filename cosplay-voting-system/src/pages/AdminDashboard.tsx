@@ -1106,6 +1106,12 @@ const AdminDashboard: React.FC = () => {
     
     const image_urls = formData.image_urls.filter(url => url.trim() !== '');
 
+    console.log('🔍 [AdminDashboard] Submetendo formulário:', {
+      isEditing: !!editingProfile,
+      formData: formData,
+      modality: formData.modality
+    });
+
     if (editingProfile) {
       updateCosplay(editingProfile.id, {
         ...formData,

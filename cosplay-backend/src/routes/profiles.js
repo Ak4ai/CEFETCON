@@ -35,7 +35,7 @@ router.get('/public', async (req, res) => {
   try {
     const result = await query(`
       SELECT 
-        cp.id, cp.name, cp.character, cp.anime, cp.image_urls, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes
+        cp.id, cp.name, cp.character, cp.anime, cp.image_urls, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes, cp.modality
       FROM cosplay_profiles cp
       ORDER BY cp.created_at DESC
     `);
