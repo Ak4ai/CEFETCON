@@ -565,6 +565,28 @@ const criteriaLabels = {
   }
 };
 
+const GalleryContainer = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+`;
+
+const ThumbnailImage = styled.img<{ isSelected: boolean }>`
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 3px solid ${props => props.isSelected ? 'var(--accent-purple)' : 'transparent'};
+  transition: border-color 0.3s ease;
+
+  &:hover {
+    border-color: var(--accent-purple);
+  }
+`;
+
 const JurorVoting: React.FC = () => {
   const { state: authState, logout } = useAuth();
   const { state, submitVote } = useApp();
@@ -582,7 +604,8 @@ const JurorVoting: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [descriptionMaxHeight, setDescriptionMaxHeight] = useState<string>('0px'); // Inicia com 0 para modo 3 colunas
-  
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   const imageContainerRef = React.useRef<HTMLDivElement>(null);
 
   // Efeito para enviar ping de presença
@@ -605,6 +628,12 @@ const JurorVoting: React.FC = () => {
 
   const currentProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
   const jurorId = authState.user?.id || '';
+
+  useEffect(() => {
+    if (currentProfile) {
+        setSelectedImage(currentProfile.image_urls[0] || null);
+    }
+  }, [currentProfile]);
 
   // Efeito para monitorar altura da coluna de imagem e aplicar à descrição
   useEffect(() => {
@@ -772,12 +801,23 @@ const JurorVoting: React.FC = () => {
             <>
               <ImageContainer ref={imageContainerRef}>
                 <ProfileImageThreeColumn 
-                  src={currentProfile.image} 
+                  src={selectedImage || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
                   alt={currentProfile.name}
                   onError={(e) => {
                     e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
                   }}
                 />
+                <GalleryContainer>
+                  {currentProfile.image_urls.map((url, index) => (
+                      <ThumbnailImage 
+                          key={index} 
+                          src={url} 
+                          alt={`Thumbnail ${index + 1}`} 
+                          onClick={() => setSelectedImage(url)}
+                          isSelected={selectedImage === url}
+                      />
+                  ))}
+                </GalleryContainer>
               </ImageContainer>
               
               <InfoContainer $maxHeight={descriptionMaxHeight}>
@@ -855,12 +895,23 @@ const JurorVoting: React.FC = () => {
               <LeftContainer>
                 <ImageSection>
                   <ProfileImage 
-                    src={currentProfile.image} 
+                    src={selectedImage || 'https://via.placeholder.com/400x300?text=Sem+Imagem'} 
                     alt={currentProfile.name}
                     onError={(e) => {
                       e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
                     }}
                   />
+                  <GalleryContainer>
+                    {currentProfile.image_urls.map((url, index) => (
+                        <ThumbnailImage 
+                            key={index} 
+                            src={url} 
+                            alt={`Thumbnail ${index + 1}`} 
+                            onClick={() => setSelectedImage(url)}
+                            isSelected={selectedImage === url}
+                        />
+                    ))}
+                  </GalleryContainer>
                 </ImageSection>
                 
                 <InfoSection>

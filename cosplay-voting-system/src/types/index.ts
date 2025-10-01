@@ -3,7 +3,7 @@ export interface CosplayProfile {
   name: string;
   character: string;
   anime: string;
-  image: string;
+  image_urls: string[];
   description: string;
   isVisible: boolean;
   voting_status: 'pending' | 'active' | 'completed';

@@ -939,7 +939,7 @@ const AdminDashboard: React.FC = () => {
     name: '',
     character: '',
     anime: '',
-    image: '',
+    image_urls: '',
     description: ''
   });
 
@@ -950,7 +950,7 @@ const AdminDashboard: React.FC = () => {
         name: profile.name,
         character: profile.character,
         anime: profile.anime,
-        image: profile.image,
+        image_urls: profile.image_urls.join('\n'),
         description: profile.description
       });
     } else {
@@ -959,7 +959,7 @@ const AdminDashboard: React.FC = () => {
         name: '',
         character: '',
         anime: '',
-        image: '',
+        image_urls: '',
         description: ''
       });
     }
@@ -974,12 +974,14 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    const image_urls = formData.image_urls.split('\n').filter(url => url.trim() !== '');
+
     if (editingProfile) {
       updateCosplay(editingProfile.id, {
         name: formData.name,
         character: formData.character,
         anime: formData.anime,
-        image: formData.image,
+        image_urls: image_urls,
         description: formData.description
       });
     } else {
@@ -987,7 +989,7 @@ const AdminDashboard: React.FC = () => {
         name: formData.name,
         character: formData.character,
         anime: formData.anime,
-        image: formData.image,
+        image_urls: image_urls,
         description: formData.description
       });
     }
@@ -1078,9 +1080,9 @@ const AdminDashboard: React.FC = () => {
                     $isSelected={state.currentVisibleProfile === profile.id}
                     $isActive={state.currentVisibleProfile === profile.id}
                   >
-                    {profile.image ? (
+                    {profile.image_urls && profile.image_urls[0] ? (
                       <ProfileSelectorImage 
-                        src={profile.image} 
+                        src={profile.image_urls[0]} 
                         alt={profile.name}
                         onError={(e) => {
                           // Se a imagem falhar, mostrar o ícone de usuário
@@ -1271,7 +1273,7 @@ const AdminDashboard: React.FC = () => {
             Perfis de Cosplay
           </SectionTitle>
           
-          <AddButton onClick={() => handleOpenModal()}>
+          <AddButton onClick={() => handleOpenModal()}> 
             <Plus size={20} />
             Adicionar Novo Perfil
           </AddButton>
@@ -1280,7 +1282,7 @@ const AdminDashboard: React.FC = () => {
             {state.cosplayProfiles.map(profile => (
               <ProfileCard key={profile.id}>
                 <ProfileImage 
-                  src={profile.image || '/placeholder-cosplay.jpg'} 
+                  src={profile.image_urls[0] || '/placeholder-cosplay.jpg'} 
                   alt={profile.name}
                   onError={(e) => {
                     e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sem+Imagem';
@@ -1353,12 +1355,12 @@ const AdminDashboard: React.FC = () => {
                 onChange={(e) => setFormData({...formData, anime: e.target.value})}
                 required
               />
-              <Input
-                type="url"
-                placeholder="URL da imagem"
-                value={formData.image}
-                onChange={(e) => setFormData({...formData, image: e.target.value})}
+              <Textarea
+                placeholder="URLs das Imagens (uma por linha)"
+                value={formData.image_urls}
+                onChange={(e) => setFormData({...formData, image_urls: e.target.value})}
                 required
+                rows={5}
               />
               <Textarea
                 placeholder="Descrição do cosplay"
