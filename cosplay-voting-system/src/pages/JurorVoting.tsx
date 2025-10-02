@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import { LogOut, Star, Send, Edit3, CheckCircle, Grid3X3, Grid2X2 } from 'lucide-react';
-import type { Scores } from '../types'
+import type { Scores, PresentationScores } from '../types'
 import { votingService } from '../services/api'
 
 const JurorContainer = styled.div`
@@ -551,6 +551,7 @@ const StatusMessage = styled.div<{ type: 'success' | 'info' }>`
 `;
 
 const criteriaLabels = {
+  // Critérios de Desfile
   indumentaria: {
     title: 'INDUMENTÁRIA',
     description: 'Qualidade de acabamento das roupas, maquiagem, penteado e acessórios.'
@@ -559,17 +560,31 @@ const criteriaLabels = {
     title: 'SIMILARIDADE',
     description: 'Fidelidade do cosplay ao personagem original, com base nas referências.'
   },
-  qualidade: {
+  qualidade_desfile: {
     title: 'QUALIDADE',
     description: 'Detalhes da vestimenta e desenvoltura do cosplayer ao desfilar.'
   },
+  
+  // Critérios de Apresentação
   interpretacao: {
     title: 'INTERPRETAÇÃO',
     description: 'Capacidade de incorporar e transmitir a essência do personagem.'
   },
-  performance: {
-    title: 'PERFORMANCE',
-    description: 'Qualidade da apresentação cênica, expressão corporal e carisma.'
+  dificuldade: {
+    title: 'DIFICULDADE DE EXECUÇÃO',
+    description: 'Complexidade técnica e habilidade necessária para realizar a apresentação.'
+  },
+  qualidade: {
+    title: 'QUALIDADE E IMPACTO DA APRESENTAÇÃO',
+    description: 'Qualidade geral, impacto visual e emocional da performance.'
+  },
+  conteudo: {
+    title: 'CONTEÚDO E QUALIDADE AUDIOVISUAL',
+    description: 'Qualidade do áudio, vídeo, edição e elementos multimídia utilizados.'
+  },
+  criatividade: {
+    title: 'CRIATIVIDADE E ROTEIRO',
+    description: 'Originalidade, coerência narrativa e criatividade na construção do roteiro.'
   }
 };
 
@@ -602,7 +617,9 @@ const JurorVoting: React.FC = () => {
     similaridade: 0,
     qualidade: 0,
     interpretacao: 0,
-    performance: 0
+    dificuldade: 0,
+    conteudo: 0,
+    criatividade: 0
   });
   
   const [isEditing, setIsEditing] = useState(false);
@@ -688,7 +705,9 @@ const JurorVoting: React.FC = () => {
           similaridade: 0,
           qualidade: 0,
           interpretacao: 0,
-          performance: 0
+          dificuldade: 0,
+          conteudo: 0,
+          criatividade: 0
         });
         setHasVoted(false);
         setIsEditing(false);
@@ -741,23 +760,23 @@ const JurorVoting: React.FC = () => {
   const allScoresValid = (() => {
     if (!currentProfile) return false;
     
-    // Para desfile: validar apenas 3 critérios
+    // Para desfile: validar apenas 3 critérios (indumentaria e similaridade foram removidos)
     if (currentProfile.modality === 'desfile') {
       return (
-        isValidScore(scores.indumentaria) &&
-        isValidScore(scores.similaridade) &&
+        isValidScore((scores as any).indumentaria || 0) &&
+        isValidScore((scores as any).similaridade || 0) &&
         isValidScore(scores.qualidade)
       );
     }
     
-    // Para apresentação: validar todos os 5 critérios
-    const presentationScores = scores as any;
+    // Para apresentação: validar todos os 5 novos critérios
+    const presentationScores = scores as PresentationScores;
     return (
-      isValidScore(scores.indumentaria) &&
-      isValidScore(scores.similaridade) &&
-      isValidScore(scores.qualidade) &&
       isValidScore(presentationScores.interpretacao || 0) &&
-      isValidScore(presentationScores.performance || 0)
+      isValidScore(presentationScores.dificuldade || 0) &&
+      isValidScore(presentationScores.qualidade || 0) &&
+      isValidScore(presentationScores.conteudo || 0) &&
+      isValidScore(presentationScores.criatividade || 0)
     );
   })();
 
@@ -874,12 +893,12 @@ const JurorVoting: React.FC = () => {
                 <CriteriaGrid>
                   {Object.entries(criteriaLabels)
                     .filter(([key]) => {
-                      // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                      // Para modalidade desfile, mostrar indumentaria, similaridade e qualidade_desfile
                       if (currentProfile.modality === 'desfile') {
-                        return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                        return ['indumentaria', 'similaridade', 'qualidade_desfile'].includes(key);
                       }
-                      // Para modalidade apresentação, mostrar todos os 5 critérios
-                      return true;
+                      // Para modalidade apresentação, mostrar os 5 novos critérios
+                      return ['interpretacao', 'dificuldade', 'qualidade', 'conteudo', 'criatividade'].includes(key);
                     })
                     .map(([key, info]) => (
                     <CriteriaCard key={key}>
@@ -892,8 +911,8 @@ const JurorVoting: React.FC = () => {
                         step="0.01"
                         min="1"
                         max="10"
-                        value={scores[key as keyof Scores] || ''}
-                        onChange={(e) => handleScoreChange(key as keyof Scores, e.target.value)}
+                        value={scores[key === 'qualidade_desfile' ? 'qualidade' : key as keyof Scores] || ''}
+                        onChange={(e) => handleScoreChange((key === 'qualidade_desfile' ? 'qualidade' : key) as keyof Scores, e.target.value)}
                         disabled={hasVoted && !isEditing}
                         placeholder="1-10"
                       />
@@ -969,12 +988,12 @@ const JurorVoting: React.FC = () => {
                 <CriteriaGrid>
                   {Object.entries(criteriaLabels)
                     .filter(([key]) => {
-                      // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                      // Para modalidade desfile, mostrar indumentaria, similaridade e qualidade_desfile
                       if (currentProfile.modality === 'desfile') {
-                        return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                        return ['indumentaria', 'similaridade', 'qualidade_desfile'].includes(key);
                       }
-                      // Para modalidade apresentação, mostrar todos os 5 critérios
-                      return true;
+                      // Para modalidade apresentação, mostrar os 5 novos critérios
+                      return ['interpretacao', 'dificuldade', 'qualidade', 'conteudo', 'criatividade'].includes(key);
                     })
                     .map(([key, info]) => (
                     <CriteriaCard key={key}>
@@ -987,8 +1006,8 @@ const JurorVoting: React.FC = () => {
                         step="0.01"
                         min="1"
                         max="10"
-                        value={scores[key as keyof Scores] || ''}
-                        onChange={(e) => handleScoreChange(key as keyof Scores, e.target.value)}
+                        value={scores[key === 'qualidade_desfile' ? 'qualidade' : key as keyof Scores] || ''}
+                        onChange={(e) => handleScoreChange((key === 'qualidade_desfile' ? 'qualidade' : key) as keyof Scores, e.target.value)}
                         disabled={hasVoted && !isEditing}
                         placeholder="1-10"
                       />

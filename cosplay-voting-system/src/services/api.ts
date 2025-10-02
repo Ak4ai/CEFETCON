@@ -123,6 +123,9 @@ export const profileService = {
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
         modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       }));
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfis');
@@ -152,6 +155,9 @@ export const profileService = {
           final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
           total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
           modality: profile.modality || 'desfile',
+          bonus: profile.bonus || false,
+          penalty: profile.penalty || false,
+          time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
         };
       });
     } catch (error: any) {
@@ -175,6 +181,9 @@ export const profileService = {
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
         modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfil');
@@ -204,6 +213,9 @@ export const profileService = {
         final_score: undefined,
         total_final_votes: undefined,
         modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao criar perfil');
@@ -233,6 +245,9 @@ export const profileService = {
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
         modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao atualizar perfil');
@@ -244,6 +259,62 @@ export const profileService = {
       await api.delete(`/profiles/${id}`);
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao excluir perfil');
+    }
+  },
+
+  async updateBonusPenalty(id: string, bonus: boolean, penalty: boolean): Promise<CosplayProfile> {
+    try {
+      console.log('🔍 API: Enviando para /profiles/' + id + '/bonus-penalty:', { bonus, penalty });
+      const response = await api.put(`/profiles/${id}/bonus-penalty`, { bonus, penalty });
+      console.log('✅ API: Resposta recebida:', response.data);
+      const profile = response.data.profile;
+      return {
+        id: profile.id.toString(),
+        name: profile.name,
+        character: profile.character,
+        anime: profile.anime,
+        image_urls: profile.image_urls || [],
+        description: profile.description || '',
+        isVisible: profile.is_visible || false,
+        voting_status: profile.voting_status || 'pending',
+        final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
+        total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
+      };
+    } catch (error: any) {
+      console.error('❌ API: Erro na requisição:', error.response?.data);
+      throw new Error(error.response?.data?.error || 'Erro ao atualizar bônus/penalidade');
+    }
+  },
+
+  async updateTimePenalty(id: string, time_penalty: number): Promise<CosplayProfile> {
+    try {
+      console.log('🔍 API: Enviando para /profiles/' + id + '/time-penalty:', { time_penalty });
+      const response = await api.put(`/profiles/${id}/time-penalty`, { time_penalty });
+      console.log('✅ API: Resposta recebida:', response.data);
+      const profile = response.data.profile;
+      return {
+        id: profile.id.toString(),
+        name: profile.name,
+        character: profile.character,
+        anime: profile.anime,
+        image_urls: profile.image_urls || [],
+        description: profile.description || '',
+        isVisible: profile.is_visible || false,
+        voting_status: profile.voting_status || 'pending',
+        final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
+        total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
+      };
+    } catch (error: any) {
+      console.error('❌ API: Erro na requisição:', error.response?.data);
+      throw new Error(error.response?.data?.error || 'Erro ao atualizar penalidade por tempo');
     }
   },
 
@@ -294,6 +365,9 @@ export const profileService = {
         voting_status: profile.voting_status,
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       }));
       
       console.log('🏆 Ranking mapeado:', mappedRanking);
@@ -329,9 +403,15 @@ export const voteService = {
         jurorId: vote.juror_id.toString(),
         cosplayId: vote.cosplay_id.toString(),
         scores: {
+          // Desfile
           indumentaria: vote.indumentaria,
           similaridade: vote.similaridade,
           qualidade: vote.qualidade,
+          // Apresentação (novos critérios)
+          interpretacao: vote.interpretacao,
+          dificuldade: vote.dificuldade,
+          conteudo: vote.conteudo,
+          criatividade: vote.criatividade
         },
         submitted: vote.submitted
       }));
@@ -344,20 +424,35 @@ export const voteService = {
     try {
       const voteData: any = {
         cosplay_id: parseInt(cosplayId),
-        indumentaria: scores.indumentaria,
-        similaridade: scores.similaridade,
-        qualidade: scores.qualidade,
         submitted
       };
 
-      // Incluir interpretacao e performance se existirem (modalidade apresentação)
-      const presentationScores = scores as any;
-      if (presentationScores.interpretacao !== undefined && presentationScores.interpretacao > 0) {
-        voteData.interpretacao = presentationScores.interpretacao;
+      // Adicionar apenas campos válidos (> 0)
+      const scoresAny = scores as any;
+      
+      if (scoresAny.indumentaria && scoresAny.indumentaria > 0) {
+        voteData.indumentaria = scoresAny.indumentaria;
       }
-      if (presentationScores.performance !== undefined && presentationScores.performance > 0) {
-        voteData.performance = presentationScores.performance;
+      if (scoresAny.similaridade && scoresAny.similaridade > 0) {
+        voteData.similaridade = scoresAny.similaridade;
       }
+      if (scoresAny.qualidade && scoresAny.qualidade > 0) {
+        voteData.qualidade = scoresAny.qualidade;
+      }
+      if (scoresAny.interpretacao && scoresAny.interpretacao > 0) {
+        voteData.interpretacao = scoresAny.interpretacao;
+      }
+      if (scoresAny.dificuldade && scoresAny.dificuldade > 0) {
+        voteData.dificuldade = scoresAny.dificuldade;
+      }
+      if (scoresAny.conteudo && scoresAny.conteudo > 0) {
+        voteData.conteudo = scoresAny.conteudo;
+      }
+      if (scoresAny.criatividade && scoresAny.criatividade > 0) {
+        voteData.criatividade = scoresAny.criatividade;
+      }
+
+      console.log('📤 Enviando voto para o backend:', voteData);
 
       const response = await api.post('/votes', voteData);
       
@@ -370,11 +465,15 @@ export const voteService = {
           similaridade: vote.similaridade,
           qualidade: vote.qualidade,
           interpretacao: vote.interpretacao,
-          performance: vote.performance
+          dificuldade: vote.dificuldade,
+          conteudo: vote.conteudo,
+          criatividade: vote.criatividade
         },
         submitted: vote.submitted
       };
     } catch (error: any) {
+      console.error('❌ Erro do backend:', error.response?.data);
+      console.error('❌ Detalhes completos:', JSON.stringify(error.response?.data, null, 2));
       throw new Error(error.response?.data?.error || 'Erro ao enviar voto');
     }
   },
@@ -412,9 +511,15 @@ export const voteService = {
         jurorId: vote.juror_id.toString(),
         cosplayId: vote.cosplay_id.toString(),
         scores: {
+          // Desfile
           indumentaria: vote.indumentaria,
           similaridade: vote.similaridade,
           qualidade: vote.qualidade,
+          // Apresentação (novos critérios)
+          interpretacao: vote.interpretacao,
+          dificuldade: vote.dificuldade,
+          conteudo: vote.conteudo,
+          criatividade: vote.criatividade
         },
         submitted: vote.submitted
       }));
@@ -450,6 +555,9 @@ export const votingService = {
         final_score: profile.final_score ? parseFloat(profile.final_score) : undefined,
         total_final_votes: profile.total_final_votes ? parseInt(profile.total_final_votes) : undefined,
         modality: profile.modality || 'desfile',
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Erro ao buscar perfil atual');
