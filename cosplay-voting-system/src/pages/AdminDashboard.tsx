@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
-import { Plus, Edit, Trash2, Eye, LogOut, Users, Trophy, BarChart3, Award, User, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, LogOut, Users, Trophy, BarChart3, Award, User, X, Play, Square, Clock } from 'lucide-react';
 import type { CosplayProfile } from '../types';
 
 const AdminContainer = styled.div`
@@ -322,6 +322,135 @@ const ProfileDetails = styled.p`
 const ProfileActions = styled.div`
   display: flex;
   gap: 10px;
+  margin-bottom: 10px;
+`;
+
+const BonusPenaltySection = styled.div`
+  display: flex;
+  gap: 20px;
+  padding: 15px 20px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  margin: 15px 0;
+  align-items: center;
+  justify-content: center;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+`;
+
+const CheckboxContainer = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  padding: 8px 15px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--surface);
+
+  &:hover {
+    background: var(--surface);
+    border-color: var(--accent-purple);
+    transform: translateY(-1px);
+  }
+
+  span {
+    user-select: none;
+  }
+`;
+
+const TimerSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 4px 8px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 10px;
+  margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+  }
+`;
+
+const TimerDisplay = styled.div<{ $isOvertime?: boolean }>`
+  font-size: 14px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  color: ${props => props.$isOvertime ? '#ef4444' : '#667eea'};
+  min-width: 150px;
+  text-align: center;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 2px solid ${props => props.$isOvertime ? '#ef4444' : '#667eea'};
+`;
+
+const TimerButton = styled.button<{ $isStop?: boolean }>`
+  padding: 6px 10px;
+  background: ${props => props.$isStop ? '#ef4444' : '#10b981'};
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${props => props.$isStop ? '#dc2626' : '#059669'};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const TimePenaltyInput = styled.input`
+  width: 80px;
+  padding: 8px 12px;
+  border: 1px solid var(--surface);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-purple);
+  }
+`;
+
+const TimePenaltyLabel = styled.span`
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+`;
+
+const StyledCheckbox = styled.input`
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-purple);
 `;
 
 const ActionButton = styled.button<{ $variant?: 'primary' | 'danger' | 'secondary' }>`
@@ -819,6 +948,22 @@ const NoDataMessage = styled.div`
   padding: 20px;
 `;
 
+// Wrapper for timer and badge above statistics
+const WrapAbove = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+
+  @media (min-width: 600px) {
+    flex-direction: row;
+    align-items: center;
+    gap: 30px;
+  }
+`;
+
 // Componentes para seleção horizontal de perfis
 const ProfileSelector = styled.div`
   display: flex;
@@ -1003,9 +1148,15 @@ const ClearRankingButton = styled.button`
 
 const AdminDashboard: React.FC = () => {
   const { state: authState, logout } = useAuth();
-  const { state, addCosplay, updateCosplay, deleteCosplay, setVisibleProfile, clearRanking, setVotingMode } = useApp();
+  const { state, addCosplay, updateCosplay, deleteCosplay, setVisibleProfile, clearRanking, setVotingMode, setBonusPenalty, setTimePenalty } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<CosplayProfile | null>(null);
+
+  // Estado do cronômetro
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timePenaltyValue, setTimePenaltyValue] = useState(0);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -1053,6 +1204,124 @@ const AdminDashboard: React.FC = () => {
     } catch (error) {
       console.error('❌ Erro ao alterar modo:', error);
       alert('Erro ao alterar modo de votação. Tente novamente.');
+    }
+  };
+
+  // Handler para atualizar bônus/penalidade
+  const handleBonusPenaltyChange = async (profileId: string, type: 'bonus' | 'penalty') => {
+    const profile = state.cosplayProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    try {
+      let newBonus = profile.bonus;
+      let newPenalty = profile.penalty;
+
+      if (type === 'bonus') {
+        newBonus = !newBonus;
+      } else {
+        newPenalty = !newPenalty;
+      }
+
+      console.log('🔍 Enviando dados:', { 
+        profileId, 
+        type,
+        newBonus, 
+        newPenalty,
+        bonus_type: typeof newBonus,
+        penalty_type: typeof newPenalty
+      });
+
+      await setBonusPenalty(profileId, newBonus, newPenalty);
+      console.log(`✅ ${type === 'bonus' ? 'Bônus' : 'Penalidade'} atualizado para ${profile.name}`);
+    } catch (error) {
+      console.error(`❌ Erro ao atualizar ${type}:`, error);
+      alert(`Erro ao atualizar ${type === 'bonus' ? 'bônus' : 'penalidade'}. Tente novamente.`);
+    }
+  };
+
+  // Funções do cronômetro
+  const startTimer = () => {
+    if (!isTimerRunning) {
+      setIsTimerRunning(true);
+      timerIntervalRef.current = setInterval(() => {
+        setTimerSeconds(prev => prev + 1);
+      }, 1000);
+    }
+  };
+
+  const stopTimer = async () => {
+    if (isTimerRunning && timerIntervalRef.current && state.currentVisibleProfile) {
+      clearInterval(timerIntervalRef.current);
+      setIsTimerRunning(false);
+      
+      // Calcular penalidade se passou de 3 minutos (180 segundos)
+      if (timerSeconds > 180) {
+        const overtimeSeconds = timerSeconds - 180;
+        const penalty = overtimeSeconds * 0.3;
+        const finalPenalty = parseFloat(penalty.toFixed(2));
+        setTimePenaltyValue(finalPenalty);
+        
+        // Salvar a penalidade no banco de dados
+        try {
+          await setTimePenalty(state.currentVisibleProfile, finalPenalty);
+          console.log('✅ Penalidade de tempo salva:', finalPenalty);
+        } catch (error) {
+          console.error('❌ Erro ao salvar penalidade de tempo:', error);
+        }
+      }
+    }
+  };
+
+  const resetTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+    setIsTimerRunning(false);
+    setTimerSeconds(0);
+    setTimePenaltyValue(0);
+  };
+
+  // Cleanup do timer ao desmontar componente
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Resetar timer quando mudar de perfil e carregar penalidade salva do banco
+  useEffect(() => {
+    resetTimer();
+    
+    // Carregar penalidade salva do banco de dados para este perfil
+    if (state.currentVisibleProfile) {
+      const activeProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
+      if (activeProfile && activeProfile.time_penalty) {
+        setTimePenaltyValue(activeProfile.time_penalty);
+      }
+    }
+  }, [state.currentVisibleProfile, state.cosplayProfiles]);
+
+  // Formatar tempo para exibição (MM:SS)
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleTimePenaltyChange = async (value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && state.currentVisibleProfile) {
+      setTimePenaltyValue(numValue);
+      
+      // Salvar no banco de dados
+      try {
+        await setTimePenalty(state.currentVisibleProfile, numValue);
+        console.log('✅ Penalidade de tempo atualizada manualmente:', numValue);
+      } catch (error) {
+        console.error('❌ Erro ao atualizar penalidade de tempo:', error);
+      }
     }
   };
 
@@ -1122,7 +1391,9 @@ const AdminDashboard: React.FC = () => {
       addCosplay({
         ...formData,
         image_urls: image_urls,
-        modality: formData.modality
+        modality: formData.modality,
+        bonus: false,
+        penalty: false,
       });
     }
 
@@ -1267,10 +1538,73 @@ const AdminDashboard: React.FC = () => {
           </SectionTitle>
 
           {state.currentVisibleProfile && (
-            <CurrentProfileBadge>
-              <Trophy size={16} />
-              Perfil Ativo: {state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.name} - {state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.character}
-            </CurrentProfileBadge>
+            <>
+              <WrapAbove>
+                <CurrentProfileBadge>
+                  <Trophy size={16} />
+                  Perfil Ativo: {state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.name} - {state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.character}
+                </CurrentProfileBadge>
+
+                {/* Seção do Cronômetro */}
+                <TimerSection>
+                  <Clock size={20} />
+                  <TimerDisplay $isOvertime={timerSeconds > 180}>
+                    {formatTime(timerSeconds)}
+                  </TimerDisplay>
+                  
+                  {!isTimerRunning ? (
+                    <TimerButton onClick={startTimer}>
+                      <Play size={16} />
+                      Iniciar
+                    </TimerButton>
+                  ) : (
+                    <TimerButton $isStop onClick={stopTimer}>
+                      <Square size={16} />
+                      Parar
+                    </TimerButton>
+                  )}
+                  
+                  {timerSeconds > 180 && (
+                    <TimePenaltyLabel>
+                      Excedeu {timerSeconds - 180}s (limite: 3min)
+                    </TimePenaltyLabel>
+                  )}
+                </TimerSection>
+              </WrapAbove>
+              <BonusPenaltySection>
+                <CheckboxContainer>
+                  <StyledCheckbox
+                    type="checkbox"
+                    checked={state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.bonus || false}
+                    onChange={() => handleBonusPenaltyChange(state.currentVisibleProfile!, 'bonus')}
+                  />
+                  <span>Bônus (+0.5)</span>
+                </CheckboxContainer>
+                <CheckboxContainer>
+                  <StyledCheckbox
+                    type="checkbox"
+                    checked={state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile)?.penalty || false}
+                    onChange={() => handleBonusPenaltyChange(state.currentVisibleProfile!, 'penalty')}
+                  />
+                  <span>Punição (-0.5)</span>
+                </CheckboxContainer>
+                
+                {/* Penalidade por tempo */}
+                {timePenaltyValue > 0 && (
+                  <CheckboxContainer>
+                    <span>Penalidade por tempo: -</span>
+                    <TimePenaltyInput
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={timePenaltyValue}
+                      onChange={(e) => handleTimePenaltyChange(e.target.value)}
+                    />
+                    <span>pts</span>
+                  </CheckboxContainer>
+                )}
+              </BonusPenaltySection>
+            </>
           )}
 
           {state.votingStatistics ? (
@@ -1289,7 +1623,28 @@ const AdminDashboard: React.FC = () => {
                         const sum = scores.reduce((acc, score) => acc + score, 0);
                         // Use the actual number of scores (3 for desfile, 5 for apresentação)
                         const criteriaCount = scores.length;
-                        return (sum / criteriaCount).toFixed(1);
+                        let averageScore = sum / criteriaCount;
+                        
+                        // Aplicar bônus/penalidade se o perfil tiver
+                        const currentProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
+                        if (currentProfile) {
+                          if (currentProfile.bonus) {
+                            averageScore += 0.5;
+                          }
+                          if (currentProfile.penalty) {
+                            averageScore -= 0.5;
+                          }
+                        }
+                        
+                        // Aplicar penalidade por tempo
+                        if (timePenaltyValue > 0) {
+                          averageScore -= timePenaltyValue;
+                        }
+                        
+                        // Garantir que a nota não seja negativa
+                        averageScore = Math.max(0, averageScore);
+                        
+                        return averageScore.toFixed(1);
                       })()
                       : '0.0'
                     }
@@ -1337,7 +1692,28 @@ const AdminDashboard: React.FC = () => {
                               const sum = scores.reduce((acc, score) => acc + score, 0);
                               // Use the actual number of scores (3 for desfile, 5 for apresentação)
                               const criteriaCount = scores.length;
-                              return (sum / criteriaCount).toFixed(1);
+                              let averageScore = sum / criteriaCount;
+                              
+                              // Aplicar bônus/penalidade se o perfil tiver
+                              const currentProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
+                              if (currentProfile) {
+                                if (currentProfile.bonus) {
+                                  averageScore += 0.5;
+                                }
+                                if (currentProfile.penalty) {
+                                  averageScore -= 0.5;
+                                }
+                              }
+                              
+                              // Aplicar penalidade por tempo
+                              if (timePenaltyValue > 0) {
+                                averageScore -= timePenaltyValue;
+                              }
+                              
+                              // Garantir que a nota não seja negativa
+                              averageScore = Math.max(0, averageScore);
+                              
+                              return averageScore.toFixed(1);
                             })()}
                           </strong>
                         </VotesTableCell>
@@ -1400,29 +1776,64 @@ const AdminDashboard: React.FC = () => {
                     <VotesTableHeader>Participante</VotesTableHeader>
                     <VotesTableHeader>Personagem</VotesTableHeader>
                     <VotesTableHeader>Nota Final</VotesTableHeader>
+                    <VotesTableHeader>Modificador</VotesTableHeader>
                     <VotesTableHeader>Total de Votos</VotesTableHeader>
                   </tr>
                 </thead>
                 <tbody>
                   {state.ranking
                     .filter(profile => profile.modality === state.currentMode)
+                    // Apenas calcular o modificador para exibição (não aplicar na nota)
+                    .map(profile => {
+                      // Calcular modificador total apenas para exibir na coluna
+                      let totalModifier = 0;
+                      if (profile.bonus) totalModifier += 0.5;
+                      if (profile.penalty) totalModifier -= 0.5;
+                      if (profile.time_penalty) totalModifier -= profile.time_penalty;
+                      
+                      // A nota final JÁ VEM CALCULADA DO BACKEND
+                      const finalScore = profile.final_score || 0;
+                      
+                      return { 
+                        ...profile, 
+                        finalScore, 
+                        totalModifier 
+                      };
+                    })
+                    // Reordenar pelo score do backend
+                    .sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))
                     .map((profile, index) => (
-                    <VotesTableRow key={profile.id}>
-                      <VotesTableCell>
-                        <strong style={{ fontSize: '1.2rem' }}>{index + 1}º</strong>
-                      </VotesTableCell>
-                      <VotesTableCell>{profile.name}</VotesTableCell>
-                      <VotesTableCell>{profile.character}</VotesTableCell>
-                      <VotesTableCell>
-                        <strong style={{ color: '#667eea', fontSize: '1.1rem' }}>
-                          {profile.final_score?.toFixed(2)}
-                        </strong>
-                      </VotesTableCell>
-                      <VotesTableCell>
-                        {profile.total_final_votes}
-                      </VotesTableCell>
-                    </VotesTableRow>
-                  ))}
+                      <VotesTableRow key={profile.id}>
+                        <VotesTableCell>
+                          <strong style={{ fontSize: '1.2rem' }}>{index + 1}º</strong>
+                        </VotesTableCell>
+                        <VotesTableCell>{profile.name}</VotesTableCell>
+                        <VotesTableCell>{profile.character}</VotesTableCell>
+                        <VotesTableCell>
+                          <strong style={{ color: '#667eea', fontSize: '1.1rem' }}>
+                            {profile.finalScore.toFixed(2)}
+                          </strong>
+                        </VotesTableCell>
+                        <VotesTableCell>
+                          {profile.totalModifier !== 0 && (
+                            <strong style={{ 
+                              color: profile.totalModifier > 0 ? '#10b981' : '#ef4444',
+                              fontSize: '1rem'
+                            }}>
+                              {profile.totalModifier > 0 ? '+' : ''}{profile.totalModifier.toFixed(2)}
+                              <span style={{ fontSize: '0.75rem', marginLeft: '3px' }}>
+                              </span>
+                            </strong>
+                          )}
+                          {profile.totalModifier === 0 && (
+                            <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>-</span>
+                          )}
+                        </VotesTableCell>
+                        <VotesTableCell>
+                          {profile.total_final_votes}
+                        </VotesTableCell>
+                      </VotesTableRow>
+                    ))}
                 </tbody>
               </VotesTable>
             </TableContainer>

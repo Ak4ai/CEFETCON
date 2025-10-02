@@ -106,12 +106,12 @@ router.put('/set-visible/:profileId', authenticateToken, requireAdmin, async (re
       
       let finalStatsResult;
       if (modality === 'presentation') {
-        // Para apresentação, calcular média com 5 critérios
+        // Para apresentação, calcular média com 5 novos critérios
         finalStatsResult = await query(`
           SELECT 
             COUNT(*) FILTER (WHERE submitted = true) as total_votes,
-            AVG((indumentaria + similaridade + qualidade + 
-                 COALESCE(interpretacao, 0) + COALESCE(performance, 0)) / 5.0) as overall_average
+            AVG((COALESCE(interpretacao, 0) + COALESCE(dificuldade, 0) + COALESCE(qualidade, 0) + 
+                 COALESCE(conteudo, 0) + COALESCE(criatividade, 0)) / 5.0) as overall_average
           FROM votes 
           WHERE cosplay_id = $1 AND submitted = true
         `, [oldVisibleProfileId]);
@@ -241,16 +241,16 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
 
       let statsQuery;
       if (modality === 'presentation') {
-        // Para apresentação: incluir 5 critérios
+        // Para apresentação: incluir 5 novos critérios
         statsQuery = `
           SELECT 
             COUNT(*) FILTER (WHERE submitted = true) as total_votes,
             COUNT(DISTINCT juror_id) as unique_jurors,
-            AVG(indumentaria) as avg_indumentaria,
-            AVG(similaridade) as avg_similaridade,
-            AVG(qualidade) as avg_qualidade,
             AVG(interpretacao) as avg_interpretacao,
-            AVG(performance) as avg_performance
+            AVG(dificuldade) as avg_dificuldade,
+            AVG(qualidade) as avg_qualidade,
+            AVG(conteudo) as avg_conteudo,
+            AVG(criatividade) as avg_criatividade
           FROM votes 
           WHERE cosplay_id = $1
         `;
@@ -271,20 +271,31 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
       const statsResult = await query(statsQuery, [currentProfile.id]);
 
       const stats = statsResult.rows[0];
-      currentProfileStats = {
-        total_votes: parseInt(stats.total_votes || 0),
-        unique_jurors: parseInt(stats.unique_jurors || 0),
-        averages: {
-          indumentaria: parseFloat(stats.avg_indumentaria || 0).toFixed(2),
-          similaridade: parseFloat(stats.avg_similaridade || 0).toFixed(2),
-          qualidade: parseFloat(stats.avg_qualidade || 0).toFixed(2)
-        }
-      };
-
-      // Adicionar interpretacao e performance se for modalidade apresentação
+      
       if (modality === 'presentation') {
-        currentProfileStats.averages.interpretacao = parseFloat(stats.avg_interpretacao || 0).toFixed(2);
-        currentProfileStats.averages.performance = parseFloat(stats.avg_performance || 0).toFixed(2);
+        // Montar estatísticas para apresentação
+        currentProfileStats = {
+          total_votes: parseInt(stats.total_votes || 0),
+          unique_jurors: parseInt(stats.unique_jurors || 0),
+          averages: {
+            interpretacao: parseFloat(stats.avg_interpretacao || 0).toFixed(2),
+            dificuldade: parseFloat(stats.avg_dificuldade || 0).toFixed(2),
+            qualidade: parseFloat(stats.avg_qualidade || 0).toFixed(2),
+            conteudo: parseFloat(stats.avg_conteudo || 0).toFixed(2),
+            criatividade: parseFloat(stats.avg_criatividade || 0).toFixed(2)
+          }
+        };
+      } else {
+        // Montar estatísticas para desfile
+        currentProfileStats = {
+          total_votes: parseInt(stats.total_votes || 0),
+          unique_jurors: parseInt(stats.unique_jurors || 0),
+          averages: {
+            indumentaria: parseFloat(stats.avg_indumentaria || 0).toFixed(2),
+            similaridade: parseFloat(stats.avg_similaridade || 0).toFixed(2),
+            qualidade: parseFloat(stats.avg_qualidade || 0).toFixed(2)
+          }
+        };
       }
     }
 

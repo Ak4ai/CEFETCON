@@ -10,6 +10,9 @@ export interface CosplayProfile {
   final_score?: number;
   total_final_votes?: number;
   modality: 'desfile' | 'presentation';
+  bonus: boolean;
+  penalty: boolean;
+  time_penalty?: number; // Penalidade por tempo em pontos
 }
 
 export interface DesfileScores {
@@ -19,11 +22,11 @@ export interface DesfileScores {
 }
 
 export interface PresentationScores {
-  indumentaria: number;
-  similaridade: number;
-  qualidade: number;
-  interpretacao: number;
-  performance: number;
+  interpretacao: number;        // Interpretação
+  dificuldade: number;          // Dificuldade de Execução
+  qualidade: number;            // Qualidade e Impacto da Apresentação
+  conteudo: number;             // Conteúdo e Qualidade Audiovisual
+  criatividade: number;         // Criatividade e Roteiro
 }
 
 export type Scores = DesfileScores | PresentationScores;
@@ -89,11 +92,15 @@ export interface RawVote {
   juror_id: string;
   juror_name: string;
   cosplay_id: string;
-  indumentaria: number;
-  similaridade: number;
-  qualidade: number;
+  // Desfile
+  indumentaria?: number;
+  similaridade?: number;
+  qualidade?: number;
+  // Apresentação
   interpretacao?: number;
-  performance?: number;
+  dificuldade?: number;
+  conteudo?: number;
+  criatividade?: number;
   submitted: boolean;
   updated_at: string;
 }

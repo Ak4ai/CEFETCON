@@ -1,0 +1,50 @@
+// Adicione esta rota ao arquivo profiles.js ANTES de "module.exports = router;"
+
+// PUT /api/profiles/:id/bonus-penalty - Atualizar bonus/penalty (apenas admin)
+router.put('/:id/bonus-penalty', [
+  body('bonus').isBoolean().withMessage('Bonus deve ser um booleano'),
+  body('penalty').isBoolean().withMessage('Penalty deve ser um booleano')
+], authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Dados inválidos',
+        details: errors.array()
+      });
+    }
+
+    const { id } = req.params;
+    const { bonus, penalty } = req.body;
+
+    const existingProfile = await query('SELECT id, name FROM cosplay_profiles WHERE id = $1', [id]);
+    if (existingProfile.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Perfil não encontrado',
+        code: 'PROFILE_NOT_FOUND'
+      });
+    }
+
+    const result = await query(`
+      UPDATE cosplay_profiles
+      SET bonus = $1, penalty = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING *
+    `, [bonus, penalty, id]);
+
+    const updatedProfile = result.rows[0];
+
+    res.json({
+      message: 'Bônus/Penalidade atualizados com sucesso',
+      profile: updatedProfile
+    });
+
+    console.log(`✅ Bônus/Penalidade atualizados para ${updatedProfile.name}: bonus=${bonus}, penalty=${penalty}`);
+  } catch (error) {
+    console.error('Erro ao atualizar bonus/penalty:', error);
+    res.status(500).json({
+      error: 'Erro interno do servidor',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});

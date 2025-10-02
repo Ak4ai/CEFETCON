@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { AppState, CosplayProfile, Vote, Scores, RawVote } from '../types';
-import api, { profileService, voteService, votingService } from '../services/api';
+import { profileService, voteService, votingService } from '../services/api';
 import { useAuth } from './AuthContext';
 
 type AppAction = 
@@ -16,7 +16,8 @@ type AppAction =
   | { type: 'SET_VOTING_STATISTICS'; payload: any | null }
   | { type: 'SET_RANKING'; payload: CosplayProfile[] }
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_MODE'; payload: 'desfile' | 'presentation' };
+  | { type: 'SET_MODE'; payload: 'desfile' | 'presentation' }
+  | { type: 'SET_BONUS_PENALTY'; payload: { profileId: string; bonus: boolean; penalty: boolean } };
 
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
@@ -85,14 +86,28 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           onlineJurors: action.payload.online_jurors || 0,
           pendingJurors: action.payload.pending_jurors?.length || 0,
           averageScores: action.payload.current_profile_stats?.averages ? {
-            indumentaria: parseFloat(action.payload.current_profile_stats.averages.indumentaria || '0'),
-            similaridade: parseFloat(action.payload.current_profile_stats.averages.similaridade || '0'),
-            qualidade: parseFloat(action.payload.current_profile_stats.averages.qualidade || '0'),
+            // Desfile
+            ...(action.payload.current_profile_stats.averages.indumentaria !== undefined && {
+              indumentaria: parseFloat(action.payload.current_profile_stats.averages.indumentaria || '0')
+            }),
+            ...(action.payload.current_profile_stats.averages.similaridade !== undefined && {
+              similaridade: parseFloat(action.payload.current_profile_stats.averages.similaridade || '0')
+            }),
+            ...(action.payload.current_profile_stats.averages.qualidade !== undefined && {
+              qualidade: parseFloat(action.payload.current_profile_stats.averages.qualidade || '0')
+            }),
+            // Apresentação (novos critérios)
             ...(action.payload.current_profile_stats.averages.interpretacao !== undefined && {
               interpretacao: parseFloat(action.payload.current_profile_stats.averages.interpretacao || '0')
             }),
-            ...(action.payload.current_profile_stats.averages.performance !== undefined && {
-              performance: parseFloat(action.payload.current_profile_stats.averages.performance || '0')
+            ...(action.payload.current_profile_stats.averages.dificuldade !== undefined && {
+              dificuldade: parseFloat(action.payload.current_profile_stats.averages.dificuldade || '0')
+            }),
+            ...(action.payload.current_profile_stats.averages.conteudo !== undefined && {
+              conteudo: parseFloat(action.payload.current_profile_stats.averages.conteudo || '0')
+            }),
+            ...(action.payload.current_profile_stats.averages.criatividade !== undefined && {
+              criatividade: parseFloat(action.payload.current_profile_stats.averages.criatividade || '0')
             }),
           } : null,
           votes: (action.payload.current_profile_votes || []).map((v: RawVote) => ({
@@ -101,11 +116,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             jurorName: v.juror_name,
             cosplayId: v.cosplay_id,
             scores: {
-              indumentaria: v.indumentaria,
-              similaridade: v.similaridade,
-              qualidade: v.qualidade,
+              // Desfile
+              ...(v.indumentaria !== undefined && { indumentaria: v.indumentaria }),
+              ...(v.similaridade !== undefined && { similaridade: v.similaridade }),
+              ...(v.qualidade !== undefined && { qualidade: v.qualidade }),
+              // Apresentação (novos critérios)
               ...(v.interpretacao !== undefined && { interpretacao: v.interpretacao }),
-              ...(v.performance !== undefined && { performance: v.performance }),
+              ...(v.dificuldade !== undefined && { dificuldade: v.dificuldade }),
+              ...(v.conteudo !== undefined && { conteudo: v.conteudo }),
+              ...(v.criatividade !== undefined && { criatividade: v.criatividade }),
             },
             submitted: v.submitted,
             updatedAt: v.updated_at,
@@ -123,6 +142,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         currentMode: action.payload
+      };
+    case 'SET_BONUS_PENALTY':
+      return {
+        ...state,
+        cosplayProfiles: state.cosplayProfiles.map(profile =>
+          profile.id === action.payload.profileId
+            ? { ...profile, bonus: action.payload.bonus, penalty: action.payload.penalty }
+            : profile
+        )
       };
     default:
       return state;
@@ -165,6 +193,9 @@ interface AppContextType {
   // Mode functions
   setVotingMode: (mode: 'desfile' | 'presentation') => Promise<void>;
   loadCurrentMode: () => Promise<void>;
+  // Bonus/Penalty functions
+  setBonusPenalty: (profileId: string, bonus: boolean, penalty: boolean) => Promise<void>;
+  setTimePenalty: (profileId: string, timePenalty: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -519,11 +550,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const votes = getVotesByCosplay(cosplayId);
     if (votes.length === 0) return {};
 
-    const totals = votes.reduce((acc, vote) => ({
-      indumentaria: acc.indumentaria + vote.scores.indumentaria,
-      similaridade: acc.similaridade + vote.scores.similaridade,
-      qualidade: acc.qualidade + vote.scores.qualidade,
-    }), { indumentaria: 0, similaridade: 0, qualidade: 0 });
+    // Cálculo genérico que funciona para ambas modalidades
+    const totals = votes.reduce((acc, vote) => {
+      const scores = vote.scores as any;
+      return {
+        indumentaria: acc.indumentaria + (scores.indumentaria || 0),
+        similaridade: acc.similaridade + (scores.similaridade || 0),
+        qualidade: acc.qualidade + (scores.qualidade || 0),
+      };
+    }, { indumentaria: 0, similaridade: 0, qualidade: 0 });
 
     return {
       indumentaria: totals.indumentaria / votes.length,
@@ -548,13 +583,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const stats = state.votingStatistics;
         
         if (stats.votes && stats.votes.length > 0) {
-          // Calcular score médio baseado nas estatísticas
+          // Calcular score médio baseado nas estatísticas (genérico para ambas modalidades)
           const totalScores = stats.votes.reduce((acc, vote) => {
             if (vote.submitted) {
+              const scores = vote.scores as any;
               return acc + (
-                vote.scores.indumentaria + 
-                vote.scores.similaridade + 
-                vote.scores.qualidade
+                (scores.indumentaria || 0) + 
+                (scores.similaridade || 0) + 
+                (scores.qualidade || 0)
               );
             }
             return acc;
@@ -569,11 +605,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
         } else if (stats.averageScores) {
           // Usar médias das estatísticas se disponível
-          const avgScores = stats.averageScores;
+          const avgScores = stats.averageScores as any;
           finalScore = (
-            avgScores.indumentaria + 
-            avgScores.similaridade + 
-            avgScores.qualidade
+            (avgScores.indumentaria || 0) + 
+            (avgScores.similaridade || 0) + 
+            (avgScores.qualidade || 0)
           ) / 3;
           totalVotes = stats.totalVotes || 0;
           console.log('📊 Score calculado das médias:', finalScore, 'com', totalVotes, 'votos');
@@ -583,11 +619,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         profileVotes = state.votes.filter(vote => vote.cosplayId === profileId && vote.submitted);
         
         if (profileVotes.length > 0) {
-          const totals = profileVotes.reduce((acc, vote) => ({
-            indumentaria: acc.indumentaria + vote.scores.indumentaria,
-            similaridade: acc.similaridade + vote.scores.similaridade,
-            qualidade: acc.qualidade + vote.scores.qualidade,
-          }), { indumentaria: 0, similaridade: 0, qualidade: 0 });
+          const totals = profileVotes.reduce((acc, vote) => {
+            const scores = vote.scores as any;
+            return {
+              indumentaria: acc.indumentaria + (scores.indumentaria || 0),
+              similaridade: acc.similaridade + (scores.similaridade || 0),
+              qualidade: acc.qualidade + (scores.qualidade || 0),
+            };
+          }, { indumentaria: 0, similaridade: 0, qualidade: 0 });
 
           totalVotes = profileVotes.length;
           finalScore = (
@@ -719,13 +758,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setVotingMode = async (mode: 'desfile' | 'presentation') => {
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
       await votingService.setVotingMode(mode);
       dispatch({ type: 'SET_MODE', payload: mode });
-      console.log(`✅ Modalidade alterada para ${mode}`);
+      // Recarregar perfis para garantir que a modalidade correta seja refletida
+      await loadProfiles();
     } catch (error) {
-      console.error('❌ Erro ao alterar modalidade:', error);
+      console.error('Erro ao definir modo de votação:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const setBonusPenalty = async (profileId: string, bonus: boolean, penalty: boolean) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      // Chamar a API para atualizar o backend
+      const updatedProfile = await profileService.updateBonusPenalty(profileId, bonus, penalty);
+      dispatch({ type: 'SET_BONUS_PENALTY', payload: { profileId, bonus, penalty } });
+      console.log('✅ Bônus/Penalidade atualizados com sucesso:', updatedProfile.name);
+    } catch (error) {
+      console.error('❌ Erro ao definir bônus/penalidade:', error);
       throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const setTimePenalty = async (profileId: string, timePenalty: number) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      // Chamar a API para atualizar o backend
+      const updatedProfile = await profileService.updateTimePenalty(profileId, timePenalty);
+      dispatch({ type: 'UPDATE_COSPLAY', payload: updatedProfile });
+      console.log('✅ Penalidade de tempo atualizada com sucesso:', updatedProfile.name, 'Penalidade:', timePenalty);
+    } catch (error) {
+      console.error('❌ Erro ao definir penalidade de tempo:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
@@ -760,7 +832,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       syncWithDatabase,
       clearRanking,
       setVotingMode,
-      loadCurrentMode
+      loadCurrentMode,
+      setBonusPenalty,
+      setTimePenalty
     }}>
       {children}
     </AppContext.Provider>

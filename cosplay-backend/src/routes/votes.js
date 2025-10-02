@@ -63,11 +63,16 @@ router.get('/profile/:profileId', authenticateToken, requireAdmin, async (req, r
 // POST /api/votes - Criar ou atualizar voto
 router.post('/', [
   body('cosplay_id').isInt({ min: 1 }).withMessage('ID do cosplay inválido'),
-  body('indumentaria').isFloat({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
-  body('similaridade').isFloat({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
-  body('qualidade').isFloat({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
+  // Campos de desfile (opcionais)
+  body('indumentaria').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de indumentária deve ser entre 1 e 10'),
+  body('similaridade').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de similaridade deve ser entre 1 e 10'),
+  // Qualidade é usado em ambas modalidades (opcional)
+  body('qualidade').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de qualidade deve ser entre 1 e 10'),
+  // Campos de apresentação (opcionais - novos critérios)
   body('interpretacao').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de interpretação deve ser entre 1 e 10'),
-  body('performance').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de performance deve ser entre 1 e 10'),
+  body('dificuldade').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de dificuldade deve ser entre 1 e 10'),
+  body('conteudo').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de conteúdo deve ser entre 1 e 10'),
+  body('criatividade').optional().isFloat({ min: 1, max: 10 }).withMessage('Nota de criatividade deve ser entre 1 e 10'),
   body('submitted').isBoolean().withMessage('Status de submissão deve ser boolean')
 ], authenticateToken, requireJuror, async (req, res) => {
   try {
@@ -86,9 +91,13 @@ router.post('/', [
       similaridade,
       qualidade,
       interpretacao,
-      performance,
+      dificuldade,
+      conteudo,
+      criatividade,
       submitted 
     } = req.body;
+
+    console.log('📥 Recebendo voto:', { cosplay_id, indumentaria, similaridade, qualidade, interpretacao, dificuldade, conteudo, criatividade, submitted });
 
     // Verificar se o perfil existe
     const profileResult = await query('SELECT id, name, character FROM cosplay_profiles WHERE id = $1', [cosplay_id]);
@@ -119,22 +128,46 @@ router.post('/', [
           similaridade = $2,
           qualidade = $3,
           interpretacao = $4,
-          performance = $5,
-          submitted = $6,
+          dificuldade = $5,
+          conteudo = $6,
+          criatividade = $7,
+          submitted = $8,
           updated_at = CURRENT_TIMESTAMP
-        WHERE juror_id = $7 AND cosplay_id = $8
+        WHERE juror_id = $9 AND cosplay_id = $10
         RETURNING *
-      `, [indumentaria, similaridade, qualidade, interpretacao || null, performance || null, submitted, req.user.id, cosplay_id]);
+      `, [
+        indumentaria || null, 
+        similaridade || null, 
+        qualidade || null, 
+        interpretacao || null, 
+        dificuldade || null,
+        conteudo || null,
+        criatividade || null,
+        submitted, 
+        req.user.id, 
+        cosplay_id
+      ]);
       
       message = 'Voto atualizado com sucesso';
       console.log(`✅ Voto atualizado: ${req.user.name} para ${profile.name} - ${profile.character}`);
     } else {
       // Criar novo voto
       result = await query(`
-        INSERT INTO votes (juror_id, cosplay_id, indumentaria, similaridade, qualidade, interpretacao, performance, submitted)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO votes (juror_id, cosplay_id, indumentaria, similaridade, qualidade, interpretacao, dificuldade, conteudo, criatividade, submitted)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
-      `, [req.user.id, cosplay_id, indumentaria, similaridade, qualidade, interpretacao || null, performance || null, submitted]);
+      `, [
+        req.user.id, 
+        cosplay_id, 
+        indumentaria || null, 
+        similaridade || null, 
+        qualidade || null, 
+        interpretacao || null, 
+        dificuldade || null,
+        conteudo || null,
+        criatividade || null,
+        submitted
+      ]);
       
       message = 'Voto criado com sucesso';
       console.log(`✅ Novo voto: ${req.user.name} para ${profile.name} - ${profile.character}`);
@@ -328,17 +361,17 @@ router.get('/averages/:profileId', async (req, res) => {
     // Calcular médias baseado na modalidade
     let averagesResult;
     if (modality === 'presentation') {
-      // Para apresentação: calcular média de 5 critérios
+      // Para apresentação: calcular média de 5 novos critérios
       averagesResult = await query(`
         SELECT 
           COUNT(*) as total_votes,
-          COALESCE(AVG(indumentaria), 0) as avg_indumentaria,
-          COALESCE(AVG(similaridade), 0) as avg_similaridade,
-          COALESCE(AVG(qualidade), 0) as avg_qualidade,
           COALESCE(AVG(interpretacao), 0) as avg_interpretacao,
-          COALESCE(AVG(performance), 0) as avg_performance,
-          COALESCE(AVG((indumentaria + similaridade + qualidade + 
-                       COALESCE(interpretacao, 0) + COALESCE(performance, 0)) / 5.0), 0) as final_average
+          COALESCE(AVG(dificuldade), 0) as avg_dificuldade,
+          COALESCE(AVG(qualidade), 0) as avg_qualidade,
+          COALESCE(AVG(conteudo), 0) as avg_conteudo,
+          COALESCE(AVG(criatividade), 0) as avg_criatividade,
+          COALESCE(AVG((COALESCE(interpretacao, 0) + COALESCE(dificuldade, 0) + 
+                       COALESCE(qualidade, 0) + COALESCE(conteudo, 0) + COALESCE(criatividade, 0)) / 5.0), 0) as final_average
         FROM votes 
         WHERE cosplay_id = $1 AND submitted = true
       `, [profileId]);
@@ -358,18 +391,45 @@ router.get('/averages/:profileId', async (req, res) => {
 
     const result = averagesResult.rows[0];
 
+    // Buscar modificadores do perfil (bonus, penalty, time_penalty)
+    const modifiersResult = await query(
+      'SELECT bonus, penalty, time_penalty FROM cosplay_profiles WHERE id = $1',
+      [profileId]
+    );
+    const modifiers = modifiersResult.rows[0];
+
+    // Calcular nota final com modificadores aplicados
+    let finalAverage = parseFloat(result.final_average || 0);
+    if (modifiers.bonus) {
+      finalAverage += 0.5;
+    }
+    if (modifiers.penalty) {
+      finalAverage -= 0.5;
+    }
+    if (modifiers.time_penalty) {
+      finalAverage -= parseFloat(modifiers.time_penalty);
+    }
+    // Garantir que nunca seja negativo
+    finalAverage = Math.max(0, finalAverage);
+
     const response = {
-      indumentaria: parseFloat(result.avg_indumentaria || 0),
-      similaridade: parseFloat(result.avg_similaridade || 0),
-      qualidade: parseFloat(result.avg_qualidade || 0),
-      finalAverage: parseFloat(result.final_average || 0),
+      finalAverage: parseFloat(finalAverage.toFixed(2)), // Nota final COM modificadores
       totalVotes: parseInt(result.total_votes || 0)
     };
 
-    // Adicionar interpretacao e performance se for modalidade apresentação
+    // Adicionar critérios específicos baseado na modalidade
     if (modality === 'presentation') {
+      // Novos critérios de apresentação
       response.interpretacao = parseFloat(result.avg_interpretacao || 0);
-      response.performance = parseFloat(result.avg_performance || 0);
+      response.dificuldade = parseFloat(result.avg_dificuldade || 0);
+      response.qualidade = parseFloat(result.avg_qualidade || 0);
+      response.conteudo = parseFloat(result.avg_conteudo || 0);
+      response.criatividade = parseFloat(result.avg_criatividade || 0);
+    } else {
+      // Critérios de desfile
+      response.indumentaria = parseFloat(result.avg_indumentaria || 0);
+      response.similaridade = parseFloat(result.avg_similaridade || 0);
+      response.qualidade = parseFloat(result.avg_qualidade || 0);
     }
 
     res.json(response);
