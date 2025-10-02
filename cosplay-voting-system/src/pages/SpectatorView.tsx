@@ -95,11 +95,17 @@ const CounterContainer = styled.div<{ $fontSize: string }>`
 
 
 interface VoteAverages {
-  indumentaria: number;
-  similaridade: number;
-  qualidade: number;
+  // Desfile
+  indumentaria?: number;
+  similaridade?: number;
+  
+  // Apresentação
   interpretacao?: number;
-  performance?: number;
+  dificuldade?: number;
+  qualidade?: number;
+  conteudo?: number;
+  criatividade?: number;
+  
   finalAverage: number;
   totalVotes: number;
 }
@@ -333,7 +339,7 @@ const FinalScoreContainer = styled.div`
 
 const FinalScoreTitle = styled.h3`
   font-size: clamp(1rem, 2vw, 1.5rem);
-  margin-bottom: 15px;
+  margin-top: 15px;
   text-transform: uppercase;
   letter-spacing: 2px;
   font-weight: 600;
@@ -365,6 +371,18 @@ const FinalScoreMax = styled.div`
   opacity: 0.9;
   position: relative;
   z-index: 1;
+`;
+
+const ModifierBadge = styled.div<{ $isPositive: boolean }>`
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  color: ${props => props.$isPositive ? '#10b981' : '#ef4444'};
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+  font-weight: 600;
+  text-align: center;
+  z-index: 1;
+  position: relative;
 `;
 
 const LoadingMessage = styled.div`
@@ -462,11 +480,17 @@ const BackButton = styled.button`
 `;
 
 const categoryLabels: Record<string, string> = {
+  // Desfile
   indumentaria: 'Indumentária',
   similaridade: 'Similaridade',
-  qualidade: 'Qualidade',
+  qualidade_desfile: 'Qualidade',
+  
+  // Apresentação
   interpretacao: 'Interpretação',
-  performance: 'Performance'
+  dificuldade: 'Dificuldade de Execução',
+  qualidade: 'Qualidade e Impacto',
+  conteudo: 'Conteúdo Audiovisual',
+  criatividade: 'Criatividade e Roteiro'
 };
 
 const SpectatorView: React.FC = () => {
@@ -475,6 +499,11 @@ const SpectatorView: React.FC = () => {
   const [averages, setAverages] = useState<VoteAverages | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [profileModifiers, setProfileModifiers] = useState<{
+    bonus: boolean;
+    penalty: boolean;
+    time_penalty: number;
+  }>({ bonus: false, penalty: false, time_penalty: 0 });
 
   const currentProfile = state.cosplayProfiles.find(p => p.id === state.currentVisibleProfile);
 
@@ -517,6 +546,7 @@ const SpectatorView: React.FC = () => {
     const fetchAverages = async (isBackground = false) => {
       if (!currentProfile) {
         setAverages(null);
+        setProfileModifiers({ bonus: false, penalty: false, time_penalty: 0 });
         return;
       }
 
@@ -526,9 +556,27 @@ const SpectatorView: React.FC = () => {
       
       try {
         console.log(`🔄 Buscando médias para perfil ${currentProfile.id} - ${currentProfile.name}`);
+        console.log('📋 Dados do currentProfile:', {
+          id: currentProfile.id,
+          name: currentProfile.name,
+          bonus: currentProfile.bonus,
+          penalty: currentProfile.penalty,
+          time_penalty: currentProfile.time_penalty
+        });
+        
         const response = await api.get(`/votes/averages/${currentProfile.id}`);
         console.log('📊 Médias recebidas:', response.data);
         setAverages(response.data);
+        
+        // Atualizar modificadores do perfil atual
+        const modifiers = {
+          bonus: currentProfile.bonus || false,
+          penalty: currentProfile.penalty || false,
+          time_penalty: currentProfile.time_penalty || 0
+        };
+        console.log('🎯 Modificadores aplicados:', modifiers);
+        setProfileModifiers(modifiers);
+        
         setLastUpdate(new Date());
       } catch (error: any) {
         console.error('❌ Erro ao buscar médias:', error);
@@ -587,6 +635,21 @@ const SpectatorView: React.FC = () => {
     );
   }
 
+  // Calcular modificador total apenas para exibição (a nota já vem calculada do backend)
+  const totalModifier = 
+    (profileModifiers.bonus ? 0.5 : 0) - 
+    (profileModifiers.penalty ? 0.5 : 0) - 
+    (profileModifiers.time_penalty || 0);
+  
+  // A nota final JÁ VEM CALCULADA DO BACKEND via /votes/averages
+  const finalScore = averages ? averages.finalAverage : 0;
+
+  console.log('🧮 Nota Final do Backend:', {
+    finalScore: averages?.finalAverage,
+    profileModifiers,
+    totalModifier
+  });
+
   return (
     <Container>
       <CardContainer>
@@ -622,19 +685,19 @@ const SpectatorView: React.FC = () => {
           <ScoresGrid>
             {Object.entries(categoryLabels)
               .filter(([key]) => {
-                // Para modalidade desfile, mostrar apenas os 3 critérios básicos
+                // Para modalidade desfile, mostrar indumentaria, similaridade e qualidade_desfile
                 if (currentProfile?.modality === 'desfile') {
-                  return ['indumentaria', 'similaridade', 'qualidade'].includes(key);
+                  return ['indumentaria', 'similaridade', 'qualidade_desfile'].includes(key);
                 }
-                // Para modalidade apresentação, mostrar todos os 5 critérios
-                return true;
+                // Para modalidade apresentação, mostrar os 5 novos critérios
+                return ['interpretacao', 'dificuldade', 'qualidade', 'conteudo', 'criatividade'].includes(key);
               })
               .map(([key, label]) => (
               <ScoreCard key={key}>
                 <ScoreTitle>{label}</ScoreTitle>
                 <ScoreValue>
                   <CounterRoll 
-                    value={averages ? (averages as any)[key] ?? 0 : 0}
+                    value={averages ? (averages as any)[key === 'qualidade_desfile' ? 'qualidade' : key] ?? 0 : 0}
                     decimals={1}
                     fontSize="clamp(1.5rem, 3vw, 2.5rem)"
                   />
@@ -648,12 +711,20 @@ const SpectatorView: React.FC = () => {
             <FinalScoreTitle>Nota Final</FinalScoreTitle>
             <FinalScoreValue>
               <CounterRoll 
-                value={averages ? averages.finalAverage : 0}
+                value={finalScore}
                 decimals={2} /* Aumentar precisão da nota final */
                 fontSize="clamp(3.5rem, 8vw, 5.5rem)"
               />
             </FinalScoreValue>
             <FinalScoreMax>/ 10.0</FinalScoreMax>
+            
+            {/* Exibir badge do modificador se houver */}
+            {totalModifier !== 0 && (
+              <ModifierBadge $isPositive={totalModifier > 0}>
+                {totalModifier > 0 ? '+' : ''}{totalModifier.toFixed(2)} 
+                {' '}({totalModifier > 0 ? 'Bônus' : 'Penalidade'})
+              </ModifierBadge>
+            )}
           </FinalScoreContainer>
         </ScoresWrapper>
       </CardContainer>

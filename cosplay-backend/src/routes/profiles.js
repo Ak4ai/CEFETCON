@@ -35,7 +35,7 @@ router.get('/public', async (req, res) => {
   try {
     const result = await query(`
       SELECT 
-        cp.id, cp.name, cp.character, cp.anime, cp.image_urls, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes, cp.modality
+        cp.id, cp.name, cp.character, cp.anime, cp.image_urls, cp.description, cp.voting_status, cp.final_score, cp.total_final_votes, cp.modality, cp.bonus, cp.penalty, cp.time_penalty
       FROM cosplay_profiles cp
       ORDER BY cp.created_at DESC
     `);
@@ -67,6 +67,9 @@ router.get('/ranking', authenticateToken, async (req, res) => {
         cp.anime,
         COALESCE(cp.modality, 'desfile') as modality,
         cp.voting_status,
+        cp.bonus,
+        cp.penalty,
+        cp.time_penalty,
         cp.final_score as saved_final_score,
         cp.total_final_votes as saved_total_votes,
         COUNT(v.id) FILTER (WHERE v.submitted = true) as current_total_votes,
@@ -74,7 +77,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
       FROM cosplay_profiles cp
       LEFT JOIN votes v ON cp.id = v.cosplay_id
       WHERE COALESCE(cp.modality, 'desfile') = 'desfile'
-      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.final_score, cp.total_final_votes
+      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.bonus, cp.penalty, cp.time_penalty, cp.final_score, cp.total_final_votes
       HAVING COUNT(v.id) FILTER (WHERE v.submitted = true) > 0
     `);
     
@@ -87,15 +90,18 @@ router.get('/ranking', authenticateToken, async (req, res) => {
         cp.anime,
         COALESCE(cp.modality, 'desfile') as modality,
         cp.voting_status,
+        cp.bonus,
+        cp.penalty,
+        cp.time_penalty,
         cp.final_score as saved_final_score,
         cp.total_final_votes as saved_total_votes,
         COUNT(v.id) FILTER (WHERE v.submitted = true) as current_total_votes,
-        ROUND(AVG((v.indumentaria + v.similaridade + v.qualidade + 
-                   COALESCE(v.interpretacao, 0) + COALESCE(v.performance, 0)) / 5.0), 2) as current_avg_score
+        ROUND(AVG((COALESCE(v.interpretacao, 0) + COALESCE(v.dificuldade, 0) + COALESCE(v.qualidade, 0) + 
+                   COALESCE(v.conteudo, 0) + COALESCE(v.criatividade, 0)) / 5.0), 2) as current_avg_score
       FROM cosplay_profiles cp
       LEFT JOIN votes v ON cp.id = v.cosplay_id
       WHERE cp.modality = 'presentation'
-      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.final_score, cp.total_final_votes
+      GROUP BY cp.id, cp.name, cp.character, cp.anime, cp.modality, cp.voting_status, cp.bonus, cp.penalty, cp.time_penalty, cp.final_score, cp.total_final_votes
       HAVING COUNT(v.id) FILTER (WHERE v.submitted = true) > 0
     `);
     
@@ -103,21 +109,45 @@ router.get('/ranking', authenticateToken, async (req, res) => {
     const allProfiles = [...desfileResult.rows, ...presentationResult.rows];
     
     // Mapear para o formato do ranking, usando nota em tempo real se disponível
-    const rankingData = allProfiles.map(profile => ({
-      id: profile.id,
-      name: profile.name,
-      character: profile.character,
-      anime: profile.anime,
-      modality: profile.modality || 'desfile',
-      // Usar a nota salva se o perfil está completed, caso contrário usar a nota em tempo real
-      final_score: profile.voting_status === 'completed' && profile.saved_final_score 
+    const rankingData = allProfiles.map(profile => {
+      // Calcular o score base
+      let baseScore = profile.voting_status === 'completed' && profile.saved_final_score 
         ? parseFloat(profile.saved_final_score) 
-        : profile.current_avg_score,
-      total_final_votes: profile.voting_status === 'completed' && profile.saved_total_votes
-        ? parseInt(profile.saved_total_votes)
-        : parseInt(profile.current_total_votes),
-      voting_status: profile.voting_status
-    }));
+        : (profile.current_avg_score ? parseFloat(profile.current_avg_score) : 0);
+      
+      // Aplicar bonus/penalty no backend (cálculo centralizado)
+      let finalScore = baseScore || 0;
+      if (profile.bonus) {
+        finalScore += 0.5;
+      }
+      if (profile.penalty) {
+        finalScore -= 0.5;
+      }
+      
+      // Aplicar penalidade por tempo
+      if (profile.time_penalty) {
+        finalScore -= parseFloat(profile.time_penalty);
+      }
+      
+      // Garantir que finalScore nunca seja negativo
+      finalScore = Math.max(0, finalScore);
+      
+      return {
+        id: profile.id,
+        name: profile.name,
+        character: profile.character,
+        anime: profile.anime,
+        modality: profile.modality || 'desfile',
+        final_score: parseFloat(finalScore.toFixed(2)), // Retorna nota COM modificadores aplicados
+        total_final_votes: profile.voting_status === 'completed' && profile.saved_total_votes
+          ? parseInt(profile.saved_total_votes)
+          : parseInt(profile.current_total_votes),
+        voting_status: profile.voting_status,
+        bonus: profile.bonus || false,
+        penalty: profile.penalty || false,
+        time_penalty: profile.time_penalty ? parseFloat(profile.time_penalty) : 0,
+      };
+    });
     
     // Ordenar por nota final (desc) e total de votos (desc)
     rankingData.sort((a, b) => {
@@ -128,7 +158,7 @@ router.get('/ranking', authenticateToken, async (req, res) => {
     });
     
     console.log('🏆 Ranking final com', rankingData.length, 'perfis:', 
-      rankingData.map(p => `${p.name} (${p.final_score}) - ${p.modality}`));
+      rankingData.map(p => `${p.name} (${p.final_score}) bonus:${p.bonus} penalty:${p.penalty} time:${p.time_penalty} - ${p.modality}`));
     
     res.json({ ranking: rankingData });
   } catch (error) {
@@ -517,6 +547,94 @@ router.delete('/ranking/clear', authenticateToken, requireAdmin, async (req, res
     });
   } finally {
     client.release();
+  }
+});
+
+// PUT /api/profiles/:id/bonus-penalty - Atualizar bonus/penalty (apenas admin)
+router.put('/:id/bonus-penalty', [
+  body('bonus').isBoolean().withMessage('Bonus deve ser um booleano'),
+  body('penalty').isBoolean().withMessage('Penalty deve ser um booleano')
+], authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔍 Dados recebidos:', { 
+      id: req.params.id, 
+      body: req.body,
+      bonus_type: typeof req.body.bonus,
+      penalty_type: typeof req.body.penalty
+    });
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.error('❌ Erros de validação:', errors.array());
+      return res.status(400).json({ error: 'Dados inválidos', details: errors.array() });
+    }
+    const { id } = req.params;
+    const { bonus, penalty } = req.body;
+    
+    // Verificar se o perfil existe
+    const existingProfile = await query('SELECT id, name FROM cosplay_profiles WHERE id = $1', [id]);
+    if (existingProfile.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil não encontrado', code: 'PROFILE_NOT_FOUND' });
+    }
+    
+    // Atualizar bonus e penalty
+    const result = await query(
+      `UPDATE cosplay_profiles 
+       SET bonus = $1, penalty = $2, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $3 
+       RETURNING *`, 
+      [bonus, penalty, id]
+    );
+    
+    const updatedProfile = result.rows[0];
+    res.json({ message: 'Bônus/Penalidade atualizados com sucesso', profile: updatedProfile });
+    console.log(`✅ Bônus/Penalidade atualizados para ${updatedProfile.name}: bonus=${bonus}, penalty=${penalty}`);
+  } catch (error) {
+    console.error('Erro ao atualizar bonus/penalty:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', code: 'INTERNAL_ERROR' });
+  }
+});
+
+// PUT /api/profiles/:id/time-penalty - Atualizar penalidade por tempo (apenas admin)
+router.put('/:id/time-penalty', [
+  body('time_penalty').isFloat({ min: 0 }).withMessage('Time penalty deve ser um número não negativo')
+], authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔍 Dados recebidos para time penalty:', { 
+      id: req.params.id, 
+      time_penalty: req.body.time_penalty
+    });
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.error('❌ Erros de validação:', errors.array());
+      return res.status(400).json({ error: 'Dados inválidos', details: errors.array() });
+    }
+    
+    const { id } = req.params;
+    const { time_penalty } = req.body;
+    
+    // Verificar se o perfil existe
+    const existingProfile = await query('SELECT id, name FROM cosplay_profiles WHERE id = $1', [id]);
+    if (existingProfile.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil não encontrado', code: 'PROFILE_NOT_FOUND' });
+    }
+    
+    // Atualizar time_penalty
+    const result = await query(
+      `UPDATE cosplay_profiles 
+       SET time_penalty = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`, 
+      [time_penalty, id]
+    );
+    
+    const updatedProfile = result.rows[0];
+    res.json({ message: 'Penalidade por tempo atualizada com sucesso', profile: updatedProfile });
+    console.log(`✅ Penalidade por tempo atualizada para ${updatedProfile.name}: time_penalty=${time_penalty}`);
+  } catch (error) {
+    console.error('Erro ao atualizar time penalty:', error);
+    res.status(500).json({ error: 'Erro interno do servidor', code: 'INTERNAL_ERROR' });
   }
 });
 
