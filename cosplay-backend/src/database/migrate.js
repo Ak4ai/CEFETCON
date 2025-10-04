@@ -213,7 +213,32 @@ const migrateDatabase = async () => {
   }
 };
 
-// Executar a migração
-migrateDatabase().then(() => {
+
+// Função para rodar scripts de migration extras
+async function runExtraMigrations() {
+  // Caminhos relativos aos scripts extras
+  const migrations = [
+    '../add_bonus_penalty_to_profiles_migration.js',
+    '../add_time_penalty_migration.js',
+    '../update_criteria_migration.js',
+    '../update_presentation_criteria_migration.js',
+    '../../migrate_scores_to_decimal.js',
+    '../../update_modality.js',
+  ];
+
+  for (const script of migrations) {
+    try {
+      console.log(`\n➡️ Executando migration extra: ${script}`);
+      await require(script);
+    } catch (err) {
+      console.error(`❌ Erro ao executar ${script}:`, err.message || err);
+    }
+  }
+}
+
+// Executar a migração principal e depois as extras
+migrateDatabase()
+  .then(runExtraMigrations)
+  .finally(() => {
     pool.end();
-});
+  });
