@@ -1,0 +1,8 @@
+# Segredos e dados
+.env
+*.env.local
+cosplay-backend/backup_*.sql
+*.sql.bak
+
+# Dependencias
+node_modules/
